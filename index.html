@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Nyra</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      color: white;
+      font-family: sans-serif;
+    }
+    #navbar {
+      background: #222;
+      padding: 8px;
+      display: flex;
+    }
+    #url {
+      flex: 1;
+      margin-left: 8px;
+      padding: 6px;
+      background: #333;
+      color: white;
+      border: none;
+    }
+    iframe {
+      width: 100%;
+      height: calc(100vh - 40px);
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="navbar">
+    <span>Nyra ➤</span>
+    <input id="url" type="text" placeholder="Enter URL..." />
+  </div>
+  <iframe id="viewer" src="https://duckduckgo.com"></iframe>
+
+  <script>
+    const urlInput = document.getElementById('url');
+    const viewer = document.getElementById('viewer');
+
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        let url = urlInput.value;
+        if (!url.startsWith('http')) url = 'https://' + url;
+        viewer.src = url;
+      }
+    });
+  </script>
+</body>
+</html>
