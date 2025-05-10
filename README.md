@@ -11,15 +11,15 @@ Fast, distraction-free, privacy-first — and fully yours.
 
 ## ✨ Features
 
-- **Clean, minimal UI**: Focus on what matters.
-- **Dark theme ready**: Perfect for night-time browsing.
-- **Built with Electron**: Powered by HTML, CSS, and JavaScript.
-- **Keyboard-first navigation**: (Planned) Navigate effortlessly without a mouse.
-- **Navigation controls**: Forward/back buttons like any modern browser.
-- **Dynamic address bar**: Updates with current URL in real time.
-- **Dynamic window title**: Shows page title in the app window.
-- **Modular by design**: Extend and customize with ease.
-
+- **Clean, minimal UI**: Focus on what matters.  
+- **Dark theme ready**: Perfect for night-time browsing.  
+- **Built with Electron**: Powered by HTML, CSS, and JavaScript.  
+- **Keyboard-first navigation**: (Planned) Navigate effortlessly without a mouse.  
+- **Navigation controls**: Forward/back buttons like any modern browser.  
+- **Dynamic address bar**: Updates with current URL in real time.  
+- **Dynamic window title**: Shows page title in the app window.  
+- **Smart new tab page**: Custom homepage with integrated search.  
+- **Modular by design**: Extend and customize with ease.  
 ---
 
 ## 🚀 Getting Started
@@ -52,15 +52,16 @@ npm start
 
 ## 🛠️ Roadmap
 
-Here's what's planned for Nyra:
-
-- [x] Load URL via input
-- [x] Add forward/back buttons
-- [x] Dynamic window title
-- [x] Fix double scroll issue
-- [ ] Add custom new tab page
-- [ ] Add privacy toggle (JS / cookies)
-- [ ] Add tab support
+- [x] Load URL via input  
+- [x] Add forward/back buttons  
+- [x] Dynamic window title  
+- [x] Fix double scroll issue  
+- [x] New tab with smart search bar  
+- [ ] Dynamic favorites system  
+- [ ] Add custom new tab page background  
+- [ ] Add privacy toggle (JS / cookies)  
+- [ ] Add tab support  
+- [ ] About/settings pages (`nyra://about`, `nyra://settings`)  
 
 Got ideas? Feel free to suggest features or improvements!
 

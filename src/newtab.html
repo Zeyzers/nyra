@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>New Tab - Nyra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="newtab.css" />
+  </head>
+  <body>
+    <h1>Nyra</h1>
+    <div class="search-bar">
+      <input
+        type="text"
+        id="newtab-search"
+        placeholder="Search or enter URL..."
+      />
+    </div>
+
+
+<script>
+  const input = document.getElementById("newtab-search");
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      let query = input.value.trim();
+      if (!query) return;
+
+      // if it's not a domain, treat as search
+      const isLikelySearch = (text) => {
+        const isLocal = /^localhost(:\d+)?$/.test(text);
+        const isIP = /^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(text);
+        const hasProtocol = text.startsWith("http://") || text.startsWith("https://");
+        const looksLikeDomain = text.includes(".");
+        return !hasProtocol && !isLocal && !isIP && !looksLikeDomain;
+      };
+
+      if (isLikelySearch(query)) {
+        query = "https://duckduckgo.com/?q=" + encodeURIComponent(query);
+      } else if (!query.startsWith("http")) {
+        query = "http://" + query;
+      }
+
+      window.location.href = query;
+    }
+  });
+</script>
+
+  </body>
+</html>

@@ -1,0 +1,39 @@
+ body {
+      margin: 0;
+      background: #111;
+      color: white;
+      font-family: "JetBrains Mono", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      gap: 30px;
+    }
+
+    h1 {
+      font-size: 2.5em;
+      color: #ff5c8a;
+      margin: 0;
+    }
+
+    .search-bar {
+      width: 60%;
+      max-width: 600px;
+    }
+
+    .search-bar input {
+      width: 100%;
+      padding: 12px 20px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      background: #222;
+      color: white;
+      outline: none;
+    }
+
+    .search-bar input:focus {
+      background: #2c2c2c;
+    }
+
