@@ -19,3 +19,4 @@ release/
 # System files
 Thumbs.db
 *.log
+node_modules/
