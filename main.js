@@ -6,9 +6,12 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js')
-    },
-    title: "Nyra"
+        preload: path.join(__dirname, 'preload.js'),
+        webviewTag: true
+    }
+,
+    title: "Nyra",
+    autoHideMenuBar: true
   });
 
   win.loadFile('index.html');

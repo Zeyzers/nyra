@@ -15,6 +15,9 @@ Fast, distraction-free, privacy-first — and fully yours.
 - **Dark theme ready**: Perfect for night-time browsing.
 - **Built with Electron**: Powered by HTML, CSS, and JavaScript.
 - **Keyboard-first navigation**: (Planned) Navigate effortlessly without a mouse.
+- **Navigation controls**: Forward/back buttons like any modern browser.
+- **Dynamic address bar**: Updates with current URL in real time.
+- **Dynamic window title**: Shows page title in the app window.
 - **Modular by design**: Extend and customize with ease.
 
 ---
@@ -51,8 +54,10 @@ npm start
 
 Here's what's planned for Nyra:
 
-- [ ] Load URL via input
-- [ ] Add forward/back buttons
+- [x] Load URL via input
+- [x] Add forward/back buttons
+- [x] Dynamic window title
+- [x] Fix double scroll issue
 - [ ] Add custom new tab page
 - [ ] Add privacy toggle (JS / cookies)
 - [ ] Add tab support
