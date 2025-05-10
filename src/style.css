@@ -1,0 +1,40 @@
+ body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        height: 100vh;
+        background: #111;
+        color: white;
+        font-family: sans-serif;
+      }
+      #navbar {
+        background: #222;
+        padding: 8px;
+        display: flex;
+      }
+      #url {
+        flex: 1;
+        margin-left: 8px;
+        padding: 6px;
+        background: #333;
+        color: white;
+        border: none;
+      }
+      #viewer {
+        width: 100%;
+        height: calc(100vh - 40px);
+        border: none;
+      }
+      #navbar button {
+        background: #444;
+        border: none;
+        color: white;
+        padding: 4px 10px;
+        margin-right: 6px;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+
+      #navbar button:hover {
+        background: #666;
+      }
