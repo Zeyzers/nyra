@@ -6,10 +6,16 @@ window.addEventListener("DOMContentLoaded", () => {
     // Add more virtual routes here
     // "nyra://example": "./example.html",
   };
+
   const urlInput = document.getElementById("url");
-  const viewer = document.getElementById("viewer");
   const backBtn = document.getElementById("back");
   const forwardBtn = document.getElementById("forward");
+  const tabsContainer = document.getElementById("tabs");
+  const newTabBtn = document.getElementById("new-tab");
+  const webviewsContainer = document.getElementById("webviews-container");
+
+  let tabs = [];
+  let activeTabId = null;
 
   // Resolve virtual URL to real URL
   const resolveVirtualUrl = (realUrl) => {
@@ -24,16 +30,7 @@ window.addEventListener("DOMContentLoaded", () => {
     return realUrl;
   };
 
-  // Update window title
-  viewer.addEventListener("page-title-updated", (e) => {
-    if (!e.title.startsWith("nyra")) {
-      document.title = e.title + " - Nyra";
-    } else {
-      document.title = "Nyra";
-    }
-  });
-
-  // URL logic
+  // Heuristic to determine if input is a likely search
   const isLikelySearch = (text) => {
     const isLocal = /^localhost(:\d+)?$/.test(text);
     const isIP = /^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(text);
@@ -42,42 +39,134 @@ window.addEventListener("DOMContentLoaded", () => {
     const looksLikeDomain = text.includes(".");
     return !hasProtocol && !isLocal && !isIP && !looksLikeDomain;
   };
+
   // Check if the URL is a likely search query
   urlInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
+      const tab = tabs.find((t) => t.id === activeTabId);
+      if (!tab) return;
+
       let url = urlInput.value.trim();
       if (url.startsWith("nyra://") && virtualRoutes[url]) {
-        viewer.src = virtualRoutes[url];
-        return;
+        tab.webview.src = virtualRoutes[url];
       } else if (isLikelySearch(url)) {
-        url = "https://duckduckgo.com/?q=" + encodeURIComponent(url);
+        tab.webview.src =
+          "https://duckduckgo.com/?q=" + encodeURIComponent(url);
       } else if (!url.startsWith("http")) {
-        url = "http://" + url;
+        tab.webview.src = "http://" + url;
+      } else {
+        tab.webview.src = url;
       }
-      viewer.src = url;
+
       urlInput.blur();
     }
   });
 
-  viewer.addEventListener("did-navigate", (e) => {
-    urlInput.value = resolveVirtualUrl(e.url);
-  });
+  // Create and initialize a new tab
+  function createTab(url = "nyra://newtab") {
+    const id = crypto.randomUUID();
+    const tab = {
+      id,
+      title: "New Tab",
+      url,
+      webview: document.createElement("webview"),
+    };
 
-  viewer.addEventListener("did-navigate-in-page", (e) => {
-    urlInput.value = resolveVirtualUrl(e.url);
-  });
+    tab.webview.src = virtualRoutes[url] || url;
+    tab.webview.style.display = "none";
 
-  viewer.addEventListener("did-fail-load", (e) => {
-    urlInput.value = resolveVirtualUrl(viewer.src);
-  });
+    tab.webview.setAttribute("allowpopups", "");
 
+    // Update tab title and document title
+    tab.webview.addEventListener("page-title-updated", (e) => {
+      tab.title = e.title;
+      updateTabsUI();
+      if (tab.id === activeTabId) {
+        let newTitle = e.title;
+        if (newTitle.length > 40) {
+          newTitle = newTitle.slice(0, 40) + "...";
+        }
+        document.title = newTitle;
+      }
+    });
+
+    // Handle URL input on change
+    tab.webview.addEventListener("did-navigate", (e) => {
+      if (tab.id === activeTabId) {
+        urlInput.value = resolveVirtualUrl(e.url);
+      }
+    });
+
+    tab.webview.addEventListener("did-navigate-in-page", (e) => {
+      if (tab.id === activeTabId) {
+        urlInput.value = resolveVirtualUrl(e.url);
+      }
+    });
+
+    tab.webview.addEventListener("did-fail-load", (e) => {
+      if (tab.id === activeTabId) {
+        urlInput.value = resolveVirtualUrl(tab.webview.src);
+      }
+    });
+
+    webviewsContainer.appendChild(tab.webview);
+    tabs.push(tab);
+    switchToTab(id);
+  }
+
+  // Switch to a tab by ID
+  function switchToTab(id) {
+    tabs.forEach((tab) => {
+      tab.webview.style.display = tab.id === id ? "flex" : "none";
+    });
+    activeTabId = id;
+
+    const activeTab = tabs.find((t) => t.id === id);
+    if (activeTab) {
+      urlInput.value = resolveVirtualUrl(activeTab.webview.src);
+      document.title = activeTab.title;
+    }
+
+    updateTabsUI();
+  }
+
+  // Update the tab UI bar
+  function updateTabsUI() {
+    tabsContainer.innerHTML = "";
+
+    tabs.forEach((tab) => {
+      const tabBtn = document.createElement("div");
+      tabBtn.className = "tab" + (tab.id === activeTabId ? " active" : "");
+
+      // Troncamento se troppo lungo, ma mantieni tooltip completo
+      const fullTitle = tab.title || "New Tab";
+      let label = fullTitle;
+      if (label.length > 20) {
+        label = label.slice(0, 20) + "...";
+      }
+
+      tabBtn.textContent = label;
+      tabBtn.title = fullTitle; // Tooltip
+
+      tabBtn.onclick = () => switchToTab(tab.id);
+      tabsContainer.appendChild(tabBtn);
+    });
+  }
+
+  // Back and forward button functionality
   backBtn.addEventListener("click", () => {
-    if (viewer.canGoBack()) viewer.goBack();
+    const tab = tabs.find((t) => t.id === activeTabId);
+    if (tab && tab.webview.canGoBack()) tab.webview.goBack();
   });
 
   forwardBtn.addEventListener("click", () => {
-    if (viewer.canGoForward()) viewer.goForward();
+    const tab = tabs.find((t) => t.id === activeTabId);
+    if (tab && tab.webview.canGoForward()) tab.webview.goForward();
   });
 
-  urlInput.focus();
+  // Add new tab on + click
+  newTabBtn.onclick = () => createTab();
+
+  // Create the first tab on launch
+  createTab();
 });

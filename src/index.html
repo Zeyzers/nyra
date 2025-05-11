@@ -1,24 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="style.css">
-    <title>Nyra</title>
-  </head>
-  <body>
-    <div id="navbar">
-      <button id="back">←</button>
-      <button id="forward">→</button>
-      <input id="url" type="text" placeholder="Enter URL..." />
-    </div>
-    <webview
-      id="viewer"
-      src="newtab.html"
-      style="width: 100%; height: calc(100vh - 40px)"
-      allowpopups
-    ></webview>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+  <title>Nyra</title>
+</head>
+<body>
+  <div id="tab-bar">
+    <div class="tabs" id="tabs"></div>
+    <button id="new-tab">+</button>
+  </div>
 
-    <script src="renderer.js"></script>
-  </body>
+  <div id="navbar">
+    <button id="back">←</button>
+    <button id="forward">→</button>
+    <input id="url" type="text" placeholder="Enter URL..." />
+  </div>
+
+  <div id="webviews-container">
+    
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
 </html>

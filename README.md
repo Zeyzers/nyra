@@ -16,6 +16,7 @@ Fast, distraction-free, privacy-first — and fully yours.
 - **Built with Electron**: Powered by HTML, CSS, and JavaScript.  
 - **Keyboard-first navigation**: (Planned) Navigate effortlessly without a mouse.  
 - **Navigation controls**: Forward/back buttons like any modern browser.  
+- **Multiple Tabs**: Open and manage multiple tabs seamlessly.  
 - **Dynamic address bar**: Updates with current URL in real time.  
 - **Dynamic window title**: Shows page title in the app window.  
 - **Smart new tab page**: Custom homepage with integrated search.  
@@ -60,7 +61,7 @@ npm start
 - [ ] Dynamic favorites system  
 - [ ] Add custom new tab page background  
 - [ ] Add privacy toggle (JS / cookies)  
-- [ ] Add tab support  
+- [x] Add multiple tab support  
 - [ ] About/settings pages (`nyra://about`, `nyra://settings`)  
 
 Got ideas? Feel free to suggest features or improvements!

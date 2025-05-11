@@ -1,40 +1,124 @@
- body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        height: 100vh;
-        background: #111;
-        color: white;
-        font-family: sans-serif;
-      }
-      #navbar {
-        background: #222;
-        padding: 8px;
-        display: flex;
-      }
-      #url {
-        flex: 1;
-        margin-left: 8px;
-        padding: 6px;
-        background: #333;
-        color: white;
-        border: none;
-      }
-      #viewer {
-        width: 100%;
-        height: calc(100vh - 40px);
-        border: none;
-      }
-      #navbar button {
-        background: #444;
-        border: none;
-        color: white;
-        padding: 4px 10px;
-        margin-right: 6px;
-        cursor: pointer;
-        border-radius: 4px;
-      }
+body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  background: #111;
+  color: white;
+  font-family: sans-serif;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
-      #navbar button:hover {
-        background: #666;
-      }
+#navbar {
+  background: #222;
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+#tab-bar {
+  background: #222;
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  gap: 6px;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 4px 8px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.tabs::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.tab {
+  background: #333;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.tab:hover {
+  background: #444;
+}
+
+.tab.active {
+  background: #ff5c8a;
+}
+
+#new-tab {
+  background: #444;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+#new-tab:hover {
+  background: #666;
+}
+
+/* Navbar */
+#navbar {
+  background: #222;
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+#url {
+  flex: 1;
+  padding: 6px;
+  background: #333;
+  color: white;
+  border: none;
+}
+#navbar button {
+  background: #444;
+  border: none;
+  color: white;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+#navbar button:hover {
+  background: #666;
+}
+
+/* Webviews container */
+#webviews-container {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+webview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: none;
+}
