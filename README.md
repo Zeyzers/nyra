@@ -62,6 +62,7 @@ npm start
 - [ ] Add custom new tab page background  
 - [ ] Add privacy toggle (JS / cookies)  
 - [x] Add multiple tab support  
+- [ ] Add close-tab button 
 - [ ] About/settings pages (`nyra://about`, `nyra://settings`)  
 
 Got ideas? Feel free to suggest features or improvements!
