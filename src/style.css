@@ -1,3 +1,4 @@
+/* ===== Base Layout ===== */
 body {
   margin: 0;
   padding: 0;
@@ -10,13 +11,7 @@ body {
   overflow: hidden;
 }
 
-#navbar {
-  background: #222;
-  padding: 8px;
-  display: flex;
-  gap: 8px;
-}
-
+/* ===== Tab Bar ===== */
 #tab-bar {
   background: #222;
   display: flex;
@@ -30,7 +25,7 @@ body {
   gap: 6px;
   overflow-x: auto;
   white-space: nowrap;
-  padding: 4px 8px;
+  padding: 4px 0;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
 }
@@ -40,9 +35,10 @@ body {
 }
 
 .tab {
+  position: relative;
   background: #333;
   color: white;
-  padding: 6px 12px;
+  padding: 6px 28px 6px 12px; /* CloseBtn space */
   border-radius: 6px;
   cursor: pointer;
   max-width: 160px;
@@ -61,6 +57,31 @@ body {
   background: #ff5c8a;
 }
 
+/* Close button inside tab */
+.tab .close-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #bbb;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: none;
+  padding: 0;
+}
+
+.tab:hover .close-btn {
+  display: inline;
+}
+
+.tab .close-btn:hover {
+  color: white;
+}
+
+/* New Tab Button */
 #new-tab {
   background: #444;
   color: white;
@@ -75,7 +96,7 @@ body {
   background: #666;
 }
 
-/* Navbar */
+/* ===== Navigation Bar ===== */
 #navbar {
   background: #222;
   padding: 8px;
@@ -90,6 +111,7 @@ body {
   color: white;
   border: none;
 }
+
 #navbar button {
   background: #444;
   border: none;
@@ -98,11 +120,12 @@ body {
   cursor: pointer;
   border-radius: 4px;
 }
+
 #navbar button:hover {
   background: #666;
 }
 
-/* Webviews container */
+/* ===== Webview Container ===== */
 #webviews-container {
   flex: 1;
   position: relative;

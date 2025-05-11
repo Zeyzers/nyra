@@ -138,17 +138,24 @@ window.addEventListener("DOMContentLoaded", () => {
       const tabBtn = document.createElement("div");
       tabBtn.className = "tab" + (tab.id === activeTabId ? " active" : "");
 
-      // Troncamento se troppo lungo, ma mantieni tooltip completo
       const fullTitle = tab.title || "New Tab";
       let label = fullTitle;
-      if (label.length > 20) {
-        label = label.slice(0, 20) + "...";
-      }
+      if (label.length > 20) label = label.slice(0, 20) + "...";
 
       tabBtn.textContent = label;
-      tabBtn.title = fullTitle; // Tooltip
-
+      tabBtn.title = fullTitle;
       tabBtn.onclick = () => switchToTab(tab.id);
+
+      // Create close button
+      const closeBtn = document.createElement("button");
+      closeBtn.className = "close-btn";
+      closeBtn.textContent = "×";
+      closeBtn.onclick = (e) => {
+        e.stopPropagation(); // evita che cliccare la X attivi la tab
+        closeTab(tab.id);
+      };
+
+      tabBtn.appendChild(closeBtn);
       tabsContainer.appendChild(tabBtn);
     });
   }
@@ -167,6 +174,49 @@ window.addEventListener("DOMContentLoaded", () => {
   // Add new tab on + click
   newTabBtn.onclick = () => createTab();
 
+  // Close tab on x click
+  function closeTab(id) {
+    const index = tabs.findIndex((t) => t.id === id);
+    if (index === -1) return;
+
+    const tab = tabs[index];
+    tab.webview.remove();
+    tabs.splice(index, 1);
+
+    // If it was the last tab, create a new one
+    if (tabs.length === 0) {
+      activeTabId = null;
+      createTab(); // new tab
+      return;
+    }
+
+    // If the closed tab was active, switch to the next one
+    if (activeTabId === id) {
+      const fallback = tabs[index - 1] || tabs[index] || tabs[0];
+      switchToTab(fallback.id);
+    }
+
+    updateTabsUI();
+  }
+
   // Create the first tab on launch
   createTab();
+
+  // Handle Dev Tools (toggle with docked mode)
+  window.addEventListener("keydown", (e) => {
+    if (
+      e.key === "F12" ||
+      (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "i"))
+    ) {
+      e.preventDefault();
+      const tab = tabs.find((t) => t.id === activeTabId);
+      if (tab && tab.webview) {
+        if (tab.webview.isDevToolsOpened?.()) {
+          tab.webview.closeDevTools();
+        } else {
+          tab.webview.openDevTools();
+        }
+      }
+    }
+  });
 });

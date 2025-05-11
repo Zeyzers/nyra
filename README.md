@@ -58,11 +58,13 @@ npm start
 - [x] Dynamic window title  
 - [x] Fix double scroll issue  
 - [x] New tab with smart search bar  
+- [x] Devtools handling
+- [ ] Devtools docked in the same page
 - [ ] Dynamic favorites system  
 - [ ] Add custom new tab page background  
 - [ ] Add privacy toggle (JS / cookies)  
 - [x] Add multiple tab support  
-- [ ] Add close-tab button 
+- [x] Add close-tab button 
 - [ ] About/settings pages (`nyra://about`, `nyra://settings`)  
 
 Got ideas? Feel free to suggest features or improvements!
