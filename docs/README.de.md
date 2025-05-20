@@ -33,6 +33,7 @@ Schnell, ablenkungsfrei, datenschutzorientiert — und ganz dein eigener.
 ### Voraussetzungen
 
 Stelle sicher, dass du Folgendes installiert hast:
+
 - [Node.js](https://nodejs.org/) (Version 14 oder höher)  
 - [Git](https://git-scm.com/)
 
