@@ -1,5 +1,9 @@
 # Nyra
 
+> - This project is also available in **[English](../README.md)**.
+> - Dieses Projekt ist auch in **[Deutsch](./README.de.md)** verfügbar.
+> - このプロジェクトは、**[日本語](./README.jp.md)** にもあります。
+
 Nyra è un browser web minimale e personale costruito con Electron.  
 Veloce, senza distrazioni, orientato alla privacy — e completamente tuo.
 
