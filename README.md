@@ -21,6 +21,7 @@ Fast, distraction-free, privacy-first — and fully yours.
 - **Dynamic window title**: Shows page title in the app window.  
 - **Smart new tab page**: Custom homepage with integrated search.  
 - **Modular by design**: Extend and customize with ease.  
+
 ---
 
 ## 🚀 Getting Started
@@ -28,6 +29,7 @@ Fast, distraction-free, privacy-first — and fully yours.
 ### Prerequisites
 
 Ensure you have the following installed:
+
 - [Node.js](https://nodejs.org/) (v14 or later)
 - [Git](https://git-scm.com/)
 
@@ -64,7 +66,7 @@ npm start
 - [ ] Add custom new tab page background  
 - [ ] Add privacy toggle (JS / cookies)  
 - [x] Add multiple tab support  
-- [x] Add close-tab button 
+- [x] Add close-tab button
 - [ ] About/settings pages (`nyra://about`, `nyra://settings`)  
 
 Got ideas? Feel free to suggest features or improvements!
