@@ -10,9 +10,16 @@
     "type": "git",
     "url": "git+https://github.com/zeyzers/nyra.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [  
+  "browser",
+  "electron",
+  "minimal",
+  "privacy",
+  "open-source",
+  "nyra"
+],
+  "author": "Zeyzer",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/zeyzers/nyra/issues"
   },
