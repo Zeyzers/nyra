@@ -1,6 +1,6 @@
 {
   "name": "nyra-browser",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Nyra is a minimal, personal web browser built with Electron.   Fast, distraction-free, privacy-first — and fully yours.",
   "main": "main.js",
   "scripts": {
