@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Settings - Nyra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <main class="settings-shell">
+      <section class="settings-card">
+        <p class="eyebrow">nyra://settings</p>
+        <h1>Settings</h1>
+        <p class="intro">Small controls for Nyra's privacy-first browsing behavior.</p>
+
+        <label class="setting-row">
+          <span>
+            <strong>HTTPS-first navigation</strong>
+            <small>Bare domains open with https:// when enabled.</small>
+          </span>
+          <input id="https-first" type="checkbox" />
+        </label>
+
+        <label class="setting-row">
+          <span>
+            <strong>Search engine</strong>
+            <small>DuckDuckGo is currently the only implemented search provider.</small>
+          </span>
+          <select id="search-engine">
+            <option value="duckduckgo">DuckDuckGo</option>
+          </select>
+        </label>
+
+        <label class="setting-row">
+          <span>
+            <strong>Restore previous session</strong>
+            <small>Reopen saved tabs the next time Nyra starts.</small>
+          </span>
+          <input id="restore-session" type="checkbox" />
+        </label>
+
+        <button id="reset-state" type="button">Reset settings and saved state</button>
+        <p id="status" role="status"></p>
+      </section>
+    </main>
+
+    <script>
+      const httpsFirstInput = document.getElementById("https-first");
+      const searchEngineInput = document.getElementById("search-engine");
+      const restoreSessionInput = document.getElementById("restore-session");
+      const resetButton = document.getElementById("reset-state");
+      const status = document.getElementById("status");
+
+      const DEFAULT_SETTINGS = {
+        httpsFirst: true,
+        searchEngine: "duckduckgo",
+        restoreSession: true,
+      };
+
+      let isHydrating = false;
+
+      function setStatus(message) {
+        status.textContent = message;
+      }
+
+      function renderSettings(settings) {
+        const nextSettings = {
+          ...DEFAULT_SETTINGS,
+          ...settings,
+        };
+
+        isHydrating = true;
+        httpsFirstInput.checked = nextSettings.httpsFirst;
+        searchEngineInput.value = nextSettings.searchEngine;
+        restoreSessionInput.checked = nextSettings.restoreSession;
+        isHydrating = false;
+      }
+
+      async function saveSettings() {
+        if (isHydrating || !window.nyra) return;
+
+        const nextSettings = await window.nyra.updateSettings({
+          httpsFirst: httpsFirstInput.checked,
+          searchEngine: searchEngineInput.value,
+          restoreSession: restoreSessionInput.checked,
+        });
+
+        renderSettings(nextSettings);
+        setStatus("Saved.");
+      }
+
+      async function init() {
+        if (!window.nyra) {
+          setStatus("Settings API unavailable.");
+          return;
+        }
+
+        renderSettings(await window.nyra.getSettings());
+        setStatus("Settings loaded.");
+
+        httpsFirstInput.addEventListener("change", saveSettings);
+        searchEngineInput.addEventListener("change", saveSettings);
+        restoreSessionInput.addEventListener("change", saveSettings);
+
+        resetButton.addEventListener("click", async () => {
+          const state = await window.nyra.resetState();
+          renderSettings(state.settings);
+          setStatus("Settings and saved state reset.");
+        });
+      }
+
+      init();
+    </script>
+  </body>
+</html>

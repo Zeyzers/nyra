@@ -4,20 +4,23 @@
   "description": "Nyra is a minimal, personal web browser built with Electron.   Fast, distraction-free, privacy-first — and fully yours.",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "test": "node test/url-utils.test.js && node test/storage.test.js",
+    "lint": "node --check main.js && node --check preload.js && node --check src/storage.js && node --check src/url-utils.js && node --check src/renderer.js && node --check test/url-utils.test.js && node --check test/storage.test.js",
+    "audit": "npm audit"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zeyzers/nyra.git"
   },
-  "keywords": [  
-  "browser",
-  "electron",
-  "minimal",
-  "privacy",
-  "open-source",
-  "nyra"
-],
+  "keywords": [
+    "browser",
+    "electron",
+    "minimal",
+    "privacy",
+    "open-source",
+    "nyra"
+  ],
   "author": "Zeyzer",
   "license": "MIT",
   "bugs": {
@@ -25,6 +28,6 @@
   },
   "homepage": "https://github.com/zeyzers/nyra#readme",
   "devDependencies": {
-    "electron": "^36.2.0"
+    "electron": "^41.3.0"
   }
 }

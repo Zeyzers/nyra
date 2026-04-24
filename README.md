@@ -25,6 +25,11 @@ Fast, distraction-free, privacy-first — and fully yours.
 - **Dynamic window title**: Shows page title in the app window.  
 - **Smart new tab page**: Custom homepage with integrated search.  
 - **Modular by design**: Extend and customize with ease.  
+- **DevTools toggle**: Press F12 or Ctrl+Shift+I to inspect the active webview.
+- **Persistent settings**: Nyra stores settings in a small JSON state file.
+- **Session restore**: Optionally restores your previous tabs on launch.
+- **Internal settings page**: Visit `nyra://settings` to change core browsing behavior.
+- **Privacy-minded defaults**: HTTPS-first navigation, blocked popups, and denied site permissions by default.
 
 ---
 
@@ -64,14 +69,32 @@ npm start
 - [x] Dynamic window title  
 - [x] Fix double scroll issue  
 - [x] New tab with smart search bar  
-- [x] Devtools handling
+- [x] DevTools toggle for the active webview
+- [x] Persistent settings stored in Electron userData
+- [x] Session restore
+- [x] Settings page (`nyra://settings`)
 - [ ] Devtools docked in the same page
 - [ ] Dynamic favorites system  
 - [ ] Add custom new tab page background  
 - [ ] Add privacy toggle (JS / cookies)  
 - [x] Add multiple tab support  
 - [x] Add close-tab button
-- [ ] About/settings pages (`nyra://about`, `nyra://settings`)  
+- [ ] About page (`nyra://about`)
+
+---
+
+## 🔒 Privacy & Security
+
+Nyra currently keeps its privacy model intentionally small and explicit:
+
+- Bare domains open with `https://` by default.
+- `nyra://settings` can disable HTTPS-first behavior for local/testing workflows.
+- Web popups are blocked instead of being opened automatically.
+- Site permission requests are denied by default until Nyra has user-facing permission controls.
+- Only `mailto:` and `tel:` are opened through the operating system as external protocols.
+- Unsafe typed schemes such as `javascript:alert(1)` are treated as search text, not navigation.
+
+Persistent state is stored as `nyra-state.json` in Electron's `userData` directory. It currently contains settings, saved session tabs, and placeholders for future bookmarks and history.
 
 Got ideas? Feel free to suggest features or improvements!
 

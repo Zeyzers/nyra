@@ -1,0 +1,108 @@
+body {
+  margin: 0;
+  background: #111;
+  color: white;
+  font-family: "JetBrains Mono", sans-serif;
+  min-height: 100vh;
+}
+
+.settings-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.settings-card {
+  width: min(720px, 100%);
+  background: #181818;
+  border: 1px solid #2a2a2a;
+  border-radius: 16px;
+  padding: 32px;
+  box-sizing: border-box;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: #ff5c8a;
+  font-size: 13px;
+}
+
+h1 {
+  margin: 0;
+  color: #ff5c8a;
+  font-size: 2.5em;
+}
+
+.intro {
+  color: #bbb;
+  line-height: 1.5;
+  margin: 12px 0 28px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 0;
+  border-top: 1px solid #2a2a2a;
+}
+
+.setting-row span {
+  display: grid;
+  gap: 6px;
+}
+
+.setting-row small {
+  color: #aaa;
+  line-height: 1.4;
+}
+
+input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  accent-color: #ff5c8a;
+  flex: 0 0 auto;
+}
+
+select,
+button {
+  background: #222;
+  color: white;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+button {
+  width: 100%;
+  margin-top: 24px;
+  cursor: pointer;
+}
+
+button:hover,
+select:focus {
+  border-color: #ff5c8a;
+}
+
+#status {
+  min-height: 20px;
+  color: #aaa;
+  margin: 16px 0 0;
+}
+
+@media (max-width: 640px) {
+  .settings-card {
+    padding: 24px;
+  }
+
+  .setting-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

@@ -1,21 +1,54 @@
-window.addEventListener("DOMContentLoaded", () => {
-  // Virtual routes for nyra:// URLs
-  // These are the URLs that will be resolved to local files
+window.addEventListener("DOMContentLoaded", async () => {
+  // Virtual routes for nyra:// URLs. Internal pages are the only local files
+  // allowed inside webviews by the main-process navigation guard.
   const virtualRoutes = {
     "nyra://newtab": "./newtab.html",
-    // Add more virtual routes here
-    // "nyra://example": "./example.html",
+    "nyra://settings": "./settings.html",
+  };
+
+  const DEFAULT_SETTINGS = {
+    httpsFirst: true,
+    searchEngine: "duckduckgo",
+    restoreSession: true,
   };
 
   const urlInput = document.getElementById("url");
   const backBtn = document.getElementById("back");
   const forwardBtn = document.getElementById("forward");
+  const settingsBtn = document.getElementById("settings");
   const tabsContainer = document.getElementById("tabs");
   const newTabBtn = document.getElementById("new-tab");
   const webviewsContainer = document.getElementById("webviews-container");
 
   let tabs = [];
   let activeTabId = null;
+  let settings = DEFAULT_SETTINGS;
+  let sessionSaveTimer = null;
+
+  if (window.nyra) {
+    settings = {
+      ...DEFAULT_SETTINGS,
+      ...(await window.nyra.getSettings()),
+    };
+
+    window.nyra.onSettingsChanged((nextSettings) => {
+      settings = {
+        ...DEFAULT_SETTINGS,
+        ...nextSettings,
+      };
+    });
+
+    window.nyra.onStateReset((state) => {
+      settings = {
+        ...DEFAULT_SETTINGS,
+        ...(state && state.settings),
+      };
+    });
+  }
+
+  function routeToSrc(route) {
+    return new URL(virtualRoutes[route], window.location.href).toString();
+  }
 
   // Resolve virtual URL to real URL
   const resolveVirtualUrl = (realUrl) => {
@@ -30,15 +63,62 @@ window.addEventListener("DOMContentLoaded", () => {
     return realUrl;
   };
 
-  // Heuristic to determine if input is a likely search
-  const isLikelySearch = (text) => {
-    const isLocal = /^localhost(:\d+)?$/.test(text);
-    const isIP = /^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(text);
-    const hasProtocol =
-      text.startsWith("http://") || text.startsWith("https://");
-    const looksLikeDomain = text.includes(".");
-    return !hasProtocol && !isLocal && !isIP && !looksLikeDomain;
-  };
+  function displayUrlForSession(realUrl) {
+    const displayUrl = resolveVirtualUrl(realUrl);
+    return displayUrl || "nyra://newtab";
+  }
+
+  function isRestorableUrl(url) {
+    if (url === "nyra://newtab" || url === "nyra://settings") return true;
+
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+
+  function getSessionTabs() {
+    const sessionTabs = tabs
+      .map((tab) => ({
+        url: displayUrlForSession(tab.webview.src),
+        title: tab.title || "New Tab",
+      }))
+      .filter((tab) => isRestorableUrl(tab.url));
+
+    if (sessionTabs.length > 1 && sessionTabs.every((tab) => tab.url === "nyra://newtab")) {
+      return [sessionTabs[0]];
+    }
+
+    return sessionTabs;
+  }
+
+  function scheduleSessionSave() {
+    if (!window.nyra) return;
+
+    clearTimeout(sessionSaveTimer);
+    sessionSaveTimer = setTimeout(() => {
+      window.nyra.saveSession(getSessionTabs()).catch(() => {});
+    }, 150);
+  }
+
+  function srcForUrl(url) {
+    return virtualRoutes[url] ? routeToSrc(url) : url;
+  }
+
+  function openSettingsTab() {
+    const existingSettingsTab = tabs.find(
+      (tab) => displayUrlForSession(tab.webview.src) === "nyra://settings"
+    );
+
+    if (existingSettingsTab) {
+      switchToTab(existingSettingsTab.id);
+      return;
+    }
+
+    createTab("nyra://settings");
+  }
 
   // Check if the URL is a likely search query
   urlInput.addEventListener("keydown", (e) => {
@@ -46,16 +126,14 @@ window.addEventListener("DOMContentLoaded", () => {
       const tab = tabs.find((t) => t.id === activeTabId);
       if (!tab) return;
 
-      let url = urlInput.value.trim();
+      const url = urlInput.value.trim();
       if (url.startsWith("nyra://") && virtualRoutes[url]) {
-        tab.webview.src = virtualRoutes[url];
-      } else if (isLikelySearch(url)) {
-        tab.webview.src =
-          "https://duckduckgo.com/?q=" + encodeURIComponent(url);
-      } else if (!url.startsWith("http")) {
-        tab.webview.src = "http://" + url;
+        tab.webview.src = srcForUrl(url);
       } else {
-        tab.webview.src = url;
+        const normalizedUrl = window.NyraUrl.normalizeUrlInput(url, {
+          httpsFirst: settings.httpsFirst,
+        });
+        if (normalizedUrl) tab.webview.src = normalizedUrl;
       }
 
       urlInput.blur();
@@ -63,24 +141,23 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   // Create and initialize a new tab
-  function createTab(url = "nyra://newtab") {
+  function createTab(url = "nyra://newtab", options = {}) {
     const id = crypto.randomUUID();
     const tab = {
       id,
-      title: "New Tab",
+      title: url === "nyra://settings" ? "Settings" : "New Tab",
       url,
       webview: document.createElement("webview"),
     };
 
-    tab.webview.src = virtualRoutes[url] || url;
+    tab.webview.src = srcForUrl(url);
     tab.webview.style.display = "none";
-
-    tab.webview.setAttribute("allowpopups", "");
 
     // Update tab title and document title
     tab.webview.addEventListener("page-title-updated", (e) => {
       tab.title = e.title;
       updateTabsUI();
+      scheduleSessionSave();
       if (tab.id === activeTabId) {
         let newTitle = e.title;
         if (newTitle.length > 40) {
@@ -95,23 +172,28 @@ window.addEventListener("DOMContentLoaded", () => {
       if (tab.id === activeTabId) {
         urlInput.value = resolveVirtualUrl(e.url);
       }
+      scheduleSessionSave();
     });
 
     tab.webview.addEventListener("did-navigate-in-page", (e) => {
       if (tab.id === activeTabId) {
         urlInput.value = resolveVirtualUrl(e.url);
       }
+      scheduleSessionSave();
     });
 
-    tab.webview.addEventListener("did-fail-load", (e) => {
+    tab.webview.addEventListener("did-fail-load", () => {
       if (tab.id === activeTabId) {
         urlInput.value = resolveVirtualUrl(tab.webview.src);
       }
+      scheduleSessionSave();
     });
 
     webviewsContainer.appendChild(tab.webview);
     tabs.push(tab);
     switchToTab(id);
+
+    if (options.save !== false) scheduleSessionSave();
   }
 
   // Switch to a tab by ID
@@ -151,7 +233,7 @@ window.addEventListener("DOMContentLoaded", () => {
       closeBtn.className = "close-btn";
       closeBtn.textContent = "×";
       closeBtn.onclick = (e) => {
-        e.stopPropagation(); // evita che cliccare la X attivi la tab
+        e.stopPropagation();
         closeTab(tab.id);
       };
 
@@ -173,6 +255,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Add new tab on + click
   newTabBtn.onclick = () => createTab();
+  settingsBtn.onclick = () => openSettingsTab();
 
   // Close tab on x click
   function closeTab(id) {
@@ -186,7 +269,7 @@ window.addEventListener("DOMContentLoaded", () => {
     // If it was the last tab, create a new one
     if (tabs.length === 0) {
       activeTabId = null;
-      createTab(); // new tab
+      createTab();
       return;
     }
 
@@ -197,10 +280,33 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     updateTabsUI();
+    scheduleSessionSave();
   }
 
-  // Create the first tab on launch
-  createTab();
+  async function restoreInitialTabs() {
+    let restoredTabs = [];
+
+    if (window.nyra && settings.restoreSession) {
+      const session = await window.nyra.loadSession();
+      restoredTabs = Array.isArray(session.tabs)
+        ? session.tabs.filter((tab) => tab && isRestorableUrl(tab.url))
+        : [];
+    }
+
+    if (restoredTabs.length > 1 && restoredTabs.every((tab) => tab.url === "nyra://newtab")) {
+      restoredTabs = [restoredTabs[0]];
+    }
+
+    if (restoredTabs.length === 0) {
+      createTab();
+      return;
+    }
+
+    restoredTabs.forEach((tab) => createTab(tab.url, { save: false }));
+    scheduleSessionSave();
+  }
+
+  await restoreInitialTabs();
 
   // Handle Dev Tools (toggle with docked mode)
   window.addEventListener("keydown", (e) => {

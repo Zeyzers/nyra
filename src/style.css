@@ -125,6 +125,12 @@ body {
   background: #666;
 }
 
+#settings {
+  font-size: 14px;
+  line-height: 1;
+  min-width: 34px;
+}
+
 /* ===== Webview Container ===== */
 #webviews-container {
   flex: 1;
