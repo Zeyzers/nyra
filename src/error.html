@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Load Failed - Nyra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="error.css" />
+  </head>
+  <body>
+    <main class="error-shell">
+      <section class="error-card">
+        <p class="eyebrow">Nyra could not load this page</p>
+        <h1>Load failed</h1>
+        <p class="intro">The page did not finish loading. Nyra did not silently change the URL.</p>
+
+        <dl>
+          <dt>URL</dt>
+          <dd id="failed-url"></dd>
+          <dt>Error code/name</dt>
+          <dd id="error-code"></dd>
+          <dt>Description</dt>
+          <dd id="error-description"></dd>
+        </dl>
+
+        <button id="retry-http" type="button" hidden>Retry with HTTP</button>
+      </section>
+    </main>
+
+    <script src="error-utils.js"></script>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const failedUrl = params.get("url") || "";
+      const errorCode = params.get("code") || "unknown";
+      const errorDescription = params.get("description") || "No description available.";
+      const retryButton = document.getElementById("retry-http");
+
+      document.getElementById("failed-url").textContent = failedUrl;
+      document.getElementById("error-code").textContent = errorCode;
+      document.getElementById("error-description").textContent = errorDescription;
+
+      if (window.NyraError.canRetryWithHttp(failedUrl)) {
+        retryButton.hidden = false;
+        retryButton.addEventListener("click", () => {
+          window.location.href = window.NyraError.getHttpRetryUrl(failedUrl);
+        });
+      }
+    </script>
+  </body>
+</html>

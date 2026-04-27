@@ -29,6 +29,10 @@ Schnell, ablenkungsfrei, datenschutzorientiert — und ganz dein eigener.
 - **Persistente Einstellungen**: Nyra speichert Einstellungen in einer kleinen JSON-Zustandsdatei.
 - **Sitzungswiederherstellung**: Stellt beim Start optional deine vorherigen Tabs wieder her.
 - **Interne Einstellungsseite**: Besuche `nyra://settings`, um grundlegendes Browserverhalten zu ändern.
+- **Browser-Steuerung**: Eine dynamische Reload/Stop-Steuerung sowie Home, Einstellungen und Lesezeichen befinden sich in der Toolbar.
+- **Einfache Lesezeichen**: Speichere normale Webseiten und greife über `nyra://newtab` darauf zu.
+- **Lokaler Verlauf**: Zuletzt besuchte normale Webseiten werden lokal gespeichert und auf `nyra://history` angezeigt.
+- **Fehlerseite bei Ladefehlern**: Nyra zeigt eine einfache interne Fehlerseite, wenn Navigation fehlschlägt.
 - **Datenschutzfreundliche Standards**: HTTPS-first-Navigation, blockierte Popups und standardmäßig abgelehnte Website-Berechtigungen.
 
 ---
@@ -73,6 +77,10 @@ npm start
 - [x] Persistente Einstellungen in Electron userData speichern
 - [x] Sitzungswiederherstellung
 - [x] Einstellungsseite (`nyra://settings`)
+- [x] Toolbar-Steuerung für eine dynamische Reload/Stop-Funktion, Home, Einstellungen und Lesezeichen
+- [x] Einfache Lesezeichen auf `nyra://newtab`
+- [x] Eigener lokaler Verlaufstab (`nyra://history`)
+- [x] Interne Fehlerseite mit explizitem HTTP-Retry für lokale Adressen
 - [ ] DevTools im selben Fenster andocken
 - [ ] Dynamisches Favoritensystem
 - [ ] Benutzerdefinierter Hintergrund für neue Tabs
@@ -93,8 +101,9 @@ Nyra hält sein Datenschutzmodell derzeit bewusst klein und explizit:
 - Website-Berechtigungsanfragen werden standardmäßig abgelehnt, bis Nyra sichtbare Berechtigungskontrollen bietet.
 - Nur `mailto:` und `tel:` werden über das Betriebssystem als externe Protokolle geöffnet.
 - Unsichere eingegebene Schemas wie `javascript:alert(1)` werden als Suchtext behandelt, nicht als Navigation.
+- Fehlgeschlagene HTTPS-Ladevorgänge für `localhost` oder private LAN-IPs oder IPv4-Adressen können nur nach Klick auf den expliziten Button mit HTTP erneut versucht werden.
 
-Persistenter Zustand wird als `nyra-state.json` im Electron-Verzeichnis `userData` gespeichert. Er enthält aktuell Einstellungen, gespeicherte Sitzungstabs und Platzhalter für zukünftige Favoriten und Verlauf.
+Persistenter Zustand wird als `nyra-state.json` im Electron-Verzeichnis `userData` gespeichert. Er enthält aktuell Einstellungen, gespeicherte Sitzungstabs, Lesezeichen und aktuellen Verlauf.
 
 Hast du Ideen? Schlage gerne Funktionen oder Verbesserungen vor!
 

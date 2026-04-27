@@ -14,6 +14,8 @@ const DEFAULT_STATE = Object.freeze({
   history: []
 });
 
+const MAX_HISTORY_ENTRIES = 100;
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -44,14 +46,56 @@ function normalizeTabs(tabs) {
     }));
 }
 
+function normalizeBookmarks(bookmarks) {
+  if (!Array.isArray(bookmarks)) return [];
+
+  const seen = new Set();
+  return bookmarks
+    .filter((bookmark) => bookmark && typeof bookmark.url === 'string')
+    .map((bookmark) => ({
+      url: bookmark.url,
+      title: typeof bookmark.title === 'string' && bookmark.title.trim()
+        ? bookmark.title.trim()
+        : bookmark.url
+    }))
+    .filter((bookmark) => {
+      if (seen.has(bookmark.url)) return false;
+      seen.add(bookmark.url);
+      return true;
+    });
+}
+
+function normalizeHistory(history) {
+  if (!Array.isArray(history)) return [];
+
+  const seen = new Set();
+  return history
+    .filter((entry) => entry && typeof entry.url === 'string')
+    .map((entry) => ({
+      url: entry.url,
+      title: typeof entry.title === 'string' && entry.title.trim()
+        ? entry.title.trim()
+        : entry.url,
+      visitedAt: typeof entry.visitedAt === 'string' && entry.visitedAt.trim()
+        ? entry.visitedAt
+        : new Date().toISOString()
+    }))
+    .filter((entry) => {
+      if (seen.has(entry.url)) return false;
+      seen.add(entry.url);
+      return true;
+    })
+    .slice(0, MAX_HISTORY_ENTRIES);
+}
+
 function normalizeState(state = {}) {
   return {
     settings: normalizeSettings(state.settings),
     session: {
       tabs: normalizeTabs(state.session && state.session.tabs)
     },
-    bookmarks: Array.isArray(state.bookmarks) ? state.bookmarks : [],
-    history: Array.isArray(state.history) ? state.history : []
+    bookmarks: normalizeBookmarks(state.bookmarks),
+    history: normalizeHistory(state.history)
   };
 }
 
@@ -113,6 +157,65 @@ function createStorage(userDataDir, filename = 'nyra-state.json') {
     }).session;
   }
 
+  function getBookmarks() {
+    return clone(state.bookmarks);
+  }
+
+  function addBookmark(bookmark) {
+    const [normalizedBookmark] = normalizeBookmarks([bookmark]);
+    if (!normalizedBookmark) return getBookmarks();
+
+    return writeState({
+      ...state,
+      bookmarks: normalizeBookmarks([
+        ...state.bookmarks.filter((item) => item.url !== normalizedBookmark.url),
+        normalizedBookmark
+      ])
+    }).bookmarks;
+  }
+
+  function removeBookmark(url) {
+    if (typeof url !== 'string') return getBookmarks();
+
+    return writeState({
+      ...state,
+      bookmarks: state.bookmarks.filter((bookmark) => bookmark.url !== url)
+    }).bookmarks;
+  }
+
+  function getHistory() {
+    return clone(state.history);
+  }
+
+  function addHistoryEntry(entry) {
+    const [normalizedEntry] = normalizeHistory([entry]);
+    if (!normalizedEntry) return getHistory();
+
+    return writeState({
+      ...state,
+      history: normalizeHistory([
+        normalizedEntry,
+        ...state.history.filter((item) => item.url !== normalizedEntry.url)
+      ])
+    }).history;
+  }
+
+  function removeHistoryEntry(url) {
+    if (typeof url !== 'string') return getHistory();
+
+    return writeState({
+      ...state,
+      history: state.history.filter((entry) => entry.url !== url)
+    }).history;
+  }
+
+  function clearHistory() {
+    return writeState({
+      ...state,
+      history: []
+    }).history;
+  }
+
   return {
     filePath,
     getState,
@@ -120,7 +223,14 @@ function createStorage(userDataDir, filename = 'nyra-state.json') {
     getSettings,
     updateSettings,
     getSession,
-    saveSession
+    saveSession,
+    getBookmarks,
+    addBookmark,
+    removeBookmark,
+    getHistory,
+    addHistoryEntry,
+    removeHistoryEntry,
+    clearHistory
   };
 }
 

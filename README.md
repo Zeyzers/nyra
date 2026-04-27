@@ -29,6 +29,10 @@ Fast, distraction-free, privacy-first — and fully yours.
 - **Persistent settings**: Nyra stores settings in a small JSON state file.
 - **Session restore**: Optionally restores your previous tabs on launch.
 - **Internal settings page**: Visit `nyra://settings` to change core browsing behavior.
+- **Browser controls**: A dynamic reload/stop control, home, settings, and bookmark controls live in the toolbar.
+- **Basic bookmarks**: Bookmark normal web pages and access them from `nyra://newtab`.
+- **Local history**: Recent normal web pages are stored locally and shown on `nyra://history`.
+- **Failed-load page**: Nyra shows a simple internal error page when navigation fails.
 - **Privacy-minded defaults**: HTTPS-first navigation, blocked popups, and denied site permissions by default.
 
 ---
@@ -73,6 +77,10 @@ npm start
 - [x] Persistent settings stored in Electron userData
 - [x] Session restore
 - [x] Settings page (`nyra://settings`)
+- [x] Dynamic reload/stop, home, settings, and bookmark toolbar controls
+- [x] Basic bookmarks on `nyra://newtab`
+- [x] Dedicated local history tab (`nyra://history`)
+- [x] Internal failed-load error page with explicit HTTP retry for local addresses
 - [ ] Devtools docked in the same page
 - [ ] Dynamic favorites system  
 - [ ] Add custom new tab page background  
@@ -93,8 +101,9 @@ Nyra currently keeps its privacy model intentionally small and explicit:
 - Site permission requests are denied by default until Nyra has user-facing permission controls.
 - Only `mailto:` and `tel:` are opened through the operating system as external protocols.
 - Unsafe typed schemes such as `javascript:alert(1)` are treated as search text, not navigation.
+- Failed HTTPS loads for `localhost` or private LAN IPs or IPv4 addresses can be retried with HTTP only after clicking the explicit retry button.
 
-Persistent state is stored as `nyra-state.json` in Electron's `userData` directory. It currently contains settings, saved session tabs, and placeholders for future bookmarks and history.
+Persistent state is stored as `nyra-state.json` in Electron's `userData` directory. It currently contains settings, saved session tabs, bookmarks, and recent history.
 
 Got ideas? Feel free to suggest features or improvements!
 

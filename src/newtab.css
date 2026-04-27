@@ -1,39 +1,91 @@
- body {
-      margin: 0;
-      background: #111;
-      color: white;
-      font-family: "JetBrains Mono", sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      gap: 30px;
-    }
+body {
+  margin: 0;
+  background: #111;
+  color: white;
+  font-family: "JetBrains Mono", sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 30px;
+  box-sizing: border-box;
+  padding: 32px;
+}
 
-    h1 {
-      font-size: 2.5em;
-      color: #ff5c8a;
-      margin: 0;
-    }
+h1 {
+  font-size: 2.5em;
+  color: #ff5c8a;
+  margin: 0;
+}
 
-    .search-bar {
-      width: 60%;
-      max-width: 600px;
-    }
+.search-bar {
+  width: 60%;
+  max-width: 600px;
+}
 
-    .search-bar input {
-      width: 100%;
-      padding: 12px 20px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: none;
-      background: #222;
-      color: white;
-      outline: none;
-    }
+.search-bar input {
+  width: 100%;
+  padding: 12px 20px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: none;
+  background: #222;
+  color: white;
+  outline: none;
+  box-sizing: border-box;
+}
 
-    .search-bar input:focus {
-      background: #2c2c2c;
-    }
+.search-bar input:focus {
+  background: #2c2c2c;
+}
 
+.bookmarks {
+  width: 60%;
+  max-width: 600px;
+}
+
+.bookmarks h2 {
+  margin: 0 0 12px;
+  color: #ff5c8a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.bookmarks-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bookmarks-list a,
+.empty-list {
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: white;
+  display: inline-block;
+  font-size: 14px;
+  max-width: 180px;
+  overflow: hidden;
+  padding: 10px 12px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmarks-list a:hover {
+  border-color: #ff5c8a;
+}
+
+.empty-list {
+  color: #aaa;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .bookmarks,
+  .search-bar {
+    width: 100%;
+  }
+}

@@ -125,10 +125,27 @@ body {
   background: #666;
 }
 
+#navbar button:disabled {
+  color: #777;
+  cursor: default;
+}
+
+#navbar button:disabled:hover {
+  background: #444;
+}
+
+#bookmark,
+#history,
+#home,
+#reload-stop,
 #settings {
   font-size: 14px;
   line-height: 1;
   min-width: 34px;
+}
+
+#bookmark.bookmarked {
+  color: #ff5c8a;
 }
 
 /* ===== Webview Container ===== */

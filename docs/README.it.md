@@ -29,6 +29,10 @@ Veloce, senza distrazioni, orientato alla privacy — e completamente tuo.
 - **Impostazioni persistenti**: Nyra salva le impostazioni in un piccolo file JSON di stato.
 - **Ripristino sessione**: Può ripristinare le schede precedenti all'avvio.
 - **Pagina impostazioni interna**: Visita `nyra://settings` per modificare il comportamento di navigazione principale.
+- **Controlli del browser**: Un controllo dinamico reload/stop, home, impostazioni e preferiti sono disponibili nella toolbar.
+- **Preferiti di base**: Salva normali pagine web e accedile da `nyra://newtab`.
+- **Cronologia locale**: Le pagine web normali visitate di recente vengono salvate localmente e mostrate su `nyra://history`.
+- **Pagina errore di caricamento**: Nyra mostra una semplice pagina interna quando la navigazione fallisce.
 - **Default orientati alla privacy**: Navigazione HTTPS-first, popup bloccati e permessi dei siti negati per impostazione predefinita.
 
 ---
@@ -73,6 +77,10 @@ npm start
 - [x] Impostazioni persistenti salvate in Electron userData
 - [x] Ripristino sessione
 - [x] Pagina impostazioni (`nyra://settings`)
+- [x] Controlli toolbar per reload/stop dinamico, home, impostazioni e preferiti
+- [x] Preferiti di base su `nyra://newtab`
+- [x] Scheda dedicata per la cronologia locale (`nyra://history`)
+- [x] Pagina errore interna con retry HTTP esplicito per indirizzi locali
 - [ ] DevTools ancorati nella stessa pagina
 - [ ] Sistema di preferiti dinamico
 - [ ] Aggiunta sfondo personalizzato nella nuova scheda
@@ -93,8 +101,9 @@ Nyra mantiene intenzionalmente il proprio modello di privacy piccolo ed esplicit
 - Le richieste di permesso dei siti vengono negate per impostazione predefinita finché Nyra non avrà controlli visibili per l'utente.
 - Solo `mailto:` e `tel:` vengono aperti tramite il sistema operativo come protocolli esterni.
 - Schemi digitati non sicuri come `javascript:alert(1)` vengono trattati come testo di ricerca, non come navigazione.
+- I caricamenti HTTPS falliti per `localhost` o IP LAN privati o indirizzi IPv4 possono essere riprovati con HTTP solo dopo aver cliccato il pulsante esplicito.
 
-Lo stato persistente viene salvato come `nyra-state.json` nella directory `userData` di Electron. Al momento contiene impostazioni, schede di sessione salvate e segnaposto per futuri preferiti e cronologia.
+Lo stato persistente viene salvato come `nyra-state.json` nella directory `userData` di Electron. Al momento contiene impostazioni, schede di sessione salvate, preferiti e cronologia recente.
 
 Hai idee? Sentiti libero di suggerire funzionalità o miglioramenti!
 

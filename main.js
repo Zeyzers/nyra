@@ -32,6 +32,15 @@ function isAllowedWebNavigation(url) {
   }
 }
 
+function isSafeWebUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return WEB_PROTOCOLS.has(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
 function openAllowedExternalProtocol(url) {
   try {
     const parsed = new URL(url);
@@ -89,9 +98,46 @@ function installIpcHandlers() {
 
   ipcMain.handle('nyra:load-session', () => storage.getSession());
   ipcMain.handle('nyra:save-session', (_event, tabs) => storage.saveSession({ tabs }));
+  ipcMain.handle('nyra:get-bookmarks', () => storage.getBookmarks());
+  ipcMain.handle('nyra:add-bookmark', (_event, bookmark) => {
+    if (!bookmark || !isSafeWebUrl(bookmark.url)) {
+      return storage.getBookmarks();
+    }
+
+    const bookmarks = storage.addBookmark(bookmark);
+    broadcast('nyra:bookmarks-changed', bookmarks);
+    return bookmarks;
+  });
+  ipcMain.handle('nyra:remove-bookmark', (_event, url) => {
+    const bookmarks = storage.removeBookmark(url);
+    broadcast('nyra:bookmarks-changed', bookmarks);
+    return bookmarks;
+  });
+  ipcMain.handle('nyra:get-history', () => storage.getHistory());
+  ipcMain.handle('nyra:add-history-entry', (_event, entry) => {
+    if (!entry || !isSafeWebUrl(entry.url)) {
+      return storage.getHistory();
+    }
+
+    const history = storage.addHistoryEntry(entry);
+    broadcast('nyra:history-changed', history);
+    return history;
+  });
+  ipcMain.handle('nyra:remove-history-entry', (_event, url) => {
+    const history = storage.removeHistoryEntry(url);
+    broadcast('nyra:history-changed', history);
+    return history;
+  });
+  ipcMain.handle('nyra:clear-history', () => {
+    const history = storage.clearHistory();
+    broadcast('nyra:history-changed', history);
+    return history;
+  });
   ipcMain.handle('nyra:reset-state', () => {
     const nextState = storage.resetState();
     broadcast('nyra:settings-changed', nextState.settings);
+    broadcast('nyra:bookmarks-changed', nextState.bookmarks);
+    broadcast('nyra:history-changed', nextState.history);
     broadcast('nyra:state-reset', nextState);
     return nextState;
   });

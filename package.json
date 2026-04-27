@@ -1,12 +1,12 @@
 {
   "name": "nyra-browser",
-  "version": "1.2.0",
+  "version": "1.5.0",
   "description": "Nyra is a minimal, personal web browser built with Electron.   Fast, distraction-free, privacy-first — and fully yours.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node test/url-utils.test.js && node test/storage.test.js",
-    "lint": "node --check main.js && node --check preload.js && node --check src/storage.js && node --check src/url-utils.js && node --check src/renderer.js && node --check test/url-utils.test.js && node --check test/storage.test.js",
+    "test": "node test/url-utils.test.js && node test/storage.test.js && node test/error-utils.test.js",
+    "lint": "node --check main.js && node --check preload.js && node --check src/storage.js && node --check src/url-utils.js && node --check src/error-utils.js && node --check src/renderer.js && node --check test/url-utils.test.js && node --check test/storage.test.js && node --check test/error-utils.test.js",
     "audit": "npm audit"
   },
   "repository": {

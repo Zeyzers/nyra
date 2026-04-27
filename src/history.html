@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>History - Nyra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="history.css" />
+  </head>
+  <body>
+    <main class="history-shell">
+      <header>
+        <h1>History</h1>
+        <button id="clear-history" type="button" disabled>Clear history</button>
+      </header>
+
+      <section class="history-panel" aria-labelledby="history-title">
+        <h2 id="history-title">Recent pages</h2>
+        <div id="history-list" class="history-list"></div>
+      </section>
+    </main>
+
+    <script>
+      const historyList = document.getElementById("history-list");
+      const clearHistoryButton = document.getElementById("clear-history");
+      let currentHistory = [];
+
+      function formatVisitedAt(value) {
+        if (!value) return "";
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "";
+
+        return date.toLocaleString(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        });
+      }
+
+      function renderHistory(history = []) {
+        currentHistory = Array.isArray(history) ? history : [];
+        clearHistoryButton.disabled = currentHistory.length === 0;
+        historyList.innerHTML = "";
+
+        if (!currentHistory.length) {
+          const empty = document.createElement("p");
+          empty.className = "empty-list";
+          empty.textContent = "No history yet.";
+          historyList.appendChild(empty);
+          return;
+        }
+
+        currentHistory.forEach((entry) => {
+          const item = document.createElement("div");
+          item.className = "history-item";
+
+          const link = document.createElement("a");
+          link.className = "history-link";
+          link.href = entry.url;
+          link.title = entry.url;
+
+          const title = document.createElement("span");
+          title.className = "history-title";
+          title.textContent = entry.title || entry.url;
+
+          const url = document.createElement("span");
+          url.className = "history-url";
+          url.textContent = entry.url;
+
+          const visitedAt = document.createElement("time");
+          visitedAt.className = "history-time";
+          visitedAt.dateTime = entry.visitedAt || "";
+          visitedAt.textContent = formatVisitedAt(entry.visitedAt);
+
+          const deleteButton = document.createElement("button");
+          deleteButton.className = "delete-entry";
+          deleteButton.type = "button";
+          deleteButton.textContent = "Delete";
+          deleteButton.title = "Delete this history entry";
+          deleteButton.addEventListener("click", () => {
+            if (!window.nyra) return;
+            window.nyra.removeHistoryEntry(entry.url).then(renderHistory);
+          });
+
+          link.append(title, url, visitedAt);
+          item.append(link, deleteButton);
+          historyList.appendChild(item);
+        });
+      }
+
+      renderHistory();
+
+      if (window.nyra) {
+        window.nyra.getHistory().then(renderHistory);
+        window.nyra.onHistoryChanged(renderHistory);
+
+        clearHistoryButton.addEventListener("click", () => {
+          if (!currentHistory.length) return;
+          window.nyra.clearHistory().then(renderHistory);
+        });
+      }
+    </script>
+  </body>
+</html>

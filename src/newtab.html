@@ -15,10 +15,15 @@
         placeholder="Search or enter URL..."
       />
     </div>
+    <section class="bookmarks" aria-labelledby="bookmarks-title">
+      <h2 id="bookmarks-title">Bookmarks</h2>
+      <div id="bookmarks-list" class="bookmarks-list"></div>
+    </section>
 
     <script src="url-utils.js"></script>
     <script>
       const input = document.getElementById("newtab-search");
+      const bookmarksList = document.getElementById("bookmarks-list");
       let settings = {
         httpsFirst: true,
         searchEngine: "duckduckgo",
@@ -33,13 +38,39 @@
           };
         });
 
+        window.nyra.getBookmarks().then(renderBookmarks);
+
         window.nyra.onSettingsChanged((nextSettings) => {
           settings = {
             ...settings,
             ...nextSettings,
           };
         });
+
+        window.nyra.onBookmarksChanged(renderBookmarks);
       }
+
+      function renderBookmarks(bookmarks = []) {
+        bookmarksList.innerHTML = "";
+
+        if (!bookmarks.length) {
+          const empty = document.createElement("p");
+          empty.className = "empty-list";
+          empty.textContent = "No bookmarks yet.";
+          bookmarksList.appendChild(empty);
+          return;
+        }
+
+        bookmarks.forEach((bookmark) => {
+          const link = document.createElement("a");
+          link.href = bookmark.url;
+          link.textContent = bookmark.title || bookmark.url;
+          link.title = bookmark.url;
+          bookmarksList.appendChild(link);
+        });
+      }
+
+      renderBookmarks();
 
       input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
