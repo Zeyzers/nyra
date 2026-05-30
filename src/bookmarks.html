@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Bookmarks - Nyra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="bookmarks.css" />
+  </head>
+  <body>
+    <main class="bookmarks-shell">
+      <header>
+        <div>
+          <h1>Bookmarks</h1>
+          <p>Saved pages available from Nyra Start Page.</p>
+        </div>
+        <div class="bookmark-actions">
+          <input id="bookmark-search" type="search" placeholder="Search bookmarks" />
+          <button id="add-bookmark" type="button">Add bookmark</button>
+        </div>
+      </header>
+
+      <section class="bookmarks-panel" aria-label="Bookmarks manager">
+        <div class="bookmarks-head">
+          <span>Name</span>
+          <span>URL</span>
+          <span></span>
+        </div>
+        <div id="bookmarks-list" class="bookmarks-list"></div>
+        <p id="bookmarks-count" class="bookmarks-count"></p>
+      </section>
+    </main>
+
+    <dialog id="bookmark-dialog" class="bookmark-dialog">
+      <form method="dialog" id="bookmark-form">
+        <header>
+          <strong id="dialog-title">Add bookmark</strong>
+          <button id="dialog-close" type="button" aria-label="Close">×</button>
+        </header>
+        <label>
+          Name
+          <input id="bookmark-name" type="text" autocomplete="off" required />
+        </label>
+        <label>
+          URL
+          <input id="bookmark-url" type="url" autocomplete="off" required placeholder="https://example.com" />
+        </label>
+        <p id="bookmark-error" role="status"></p>
+        <div class="dialog-actions">
+          <button id="dialog-cancel" type="button">Cancel</button>
+          <button class="primary" type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="url-utils.js"></script>
+    <script src="settings-utils.js"></script>
+    <script>
+      const bookmarkSearch = document.getElementById("bookmark-search");
+      const bookmarksList = document.getElementById("bookmarks-list");
+      const bookmarksCount = document.getElementById("bookmarks-count");
+      const addBookmarkButton = document.getElementById("add-bookmark");
+      const bookmarkDialog = document.getElementById("bookmark-dialog");
+      const bookmarkForm = document.getElementById("bookmark-form");
+      const dialogTitle = document.getElementById("dialog-title");
+      const bookmarkName = document.getElementById("bookmark-name");
+      const bookmarkUrl = document.getElementById("bookmark-url");
+      const bookmarkError = document.getElementById("bookmark-error");
+      const dialogCancel = document.getElementById("dialog-cancel");
+      const dialogClose = document.getElementById("dialog-close");
+
+      let bookmarks = [];
+      let editingUrl = "";
+      let settings = window.NyraSettings
+        ? window.NyraSettings.DEFAULT_SETTINGS
+        : { httpsFirst: true, searchEngine: "duckduckgo" };
+
+      function applySettings(nextSettings) {
+        settings = window.NyraSettings
+          ? window.NyraSettings.normalizeSettings(nextSettings)
+          : { ...settings, ...nextSettings };
+
+        if (window.NyraSettings) window.NyraSettings.applyAppearance(settings);
+      }
+
+      function normalizedBookmarkUrl(value) {
+        const normalized = window.NyraUrl.normalizeUrlInput(value, {
+          httpsFirst: settings.httpsFirst,
+          searchEngine: settings.searchEngine,
+        });
+
+        try {
+          const parsed = new URL(normalized);
+          return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
+        } catch {
+          return "";
+        }
+      }
+
+      function siteLabel(value) {
+        try {
+          return new URL(value).hostname.replace(/^www\./, "");
+        } catch {
+          return value;
+        }
+      }
+
+      function setBookmarks(nextBookmarks = []) {
+        bookmarks = Array.isArray(nextBookmarks) ? nextBookmarks : [];
+        renderBookmarks();
+      }
+
+      function renderBookmarks() {
+        const query = bookmarkSearch.value.trim().toLowerCase();
+        const visibleBookmarks = bookmarks.filter((bookmark) => {
+          const text = `${bookmark.title || ""} ${bookmark.url || ""}`.toLowerCase();
+          return text.includes(query);
+        });
+
+        bookmarksList.innerHTML = "";
+        bookmarksCount.textContent = bookmarks.length
+          ? `Showing ${visibleBookmarks.length} of ${bookmarks.length} bookmarks`
+          : "";
+
+        if (!visibleBookmarks.length) {
+          const empty = document.createElement("p");
+          empty.className = "empty-list";
+          empty.textContent = bookmarks.length ? "No matching bookmarks." : "No bookmarks yet.";
+          bookmarksList.appendChild(empty);
+          return;
+        }
+
+        visibleBookmarks.forEach((bookmark) => {
+          const item = document.createElement("div");
+          item.className = "bookmark-item";
+
+          const title = document.createElement("a");
+          title.className = "bookmark-title";
+          title.href = bookmark.url;
+          title.textContent = bookmark.title || bookmark.url;
+
+          const url = document.createElement("span");
+          url.className = "bookmark-url";
+          url.title = bookmark.url;
+          url.textContent = siteLabel(bookmark.url);
+
+          const actions = document.createElement("div");
+          actions.className = "bookmark-row-actions";
+
+          const open = document.createElement("a");
+          open.href = bookmark.url;
+          open.textContent = "Open";
+
+          const edit = document.createElement("button");
+          edit.type = "button";
+          edit.textContent = "Edit";
+          edit.addEventListener("click", () => openDialog(bookmark));
+
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.textContent = "Delete";
+          remove.addEventListener("click", async () => {
+            setBookmarks(await window.nyra.removeBookmark(bookmark.url));
+          });
+
+          actions.append(open, edit, remove);
+          item.append(title, url, actions);
+          bookmarksList.appendChild(item);
+        });
+      }
+
+      function openDialog(bookmark = null) {
+        editingUrl = bookmark ? bookmark.url : "";
+        dialogTitle.textContent = bookmark ? "Edit bookmark" : "Add bookmark";
+        bookmarkName.value = bookmark ? bookmark.title || bookmark.url : "";
+        bookmarkUrl.value = bookmark ? bookmark.url : "";
+        bookmarkError.textContent = "";
+        bookmarkDialog.showModal();
+        bookmarkName.focus();
+      }
+
+      function closeDialog() {
+        bookmarkDialog.close();
+      }
+
+      bookmarkSearch.addEventListener("input", renderBookmarks);
+      addBookmarkButton.addEventListener("click", () => openDialog());
+      dialogCancel.addEventListener("click", closeDialog);
+      dialogClose.addEventListener("click", closeDialog);
+      bookmarkForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const title = bookmarkName.value.trim();
+        const url = normalizedBookmarkUrl(bookmarkUrl.value);
+
+        if (!title || !url) {
+          bookmarkError.textContent = "Enter a name and a valid http or https URL.";
+          return;
+        }
+
+        if (editingUrl && editingUrl !== url) {
+          await window.nyra.removeBookmark(editingUrl);
+        }
+
+        setBookmarks(await window.nyra.addBookmark({ title, url }));
+        closeDialog();
+      });
+
+      if (window.nyra) {
+        Promise.all([
+          window.nyra.getSettings(),
+          window.nyra.getBookmarks(),
+        ]).then(([nextSettings, nextBookmarks]) => {
+          applySettings(nextSettings);
+          setBookmarks(nextBookmarks);
+        });
+
+        window.nyra.onSettingsChanged(applySettings);
+        window.nyra.onBookmarksChanged(setBookmarks);
+      }
+    </script>
+  </body>
+</html>

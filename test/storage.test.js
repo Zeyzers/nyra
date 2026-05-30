@@ -25,7 +25,23 @@ function tempDir() {
   const dir = tempDir();
   const storage = createStorage(dir);
 
-  storage.updateSettings({ httpsFirst: false, searchEngine: "unknown" });
+  storage.updateSettings({
+    httpsFirst: false,
+    searchEngine: "unknown",
+    startupBehavior: "restore",
+    newTabPage: "blank",
+    theme: "light",
+    accentColor: "blue",
+    showSidebar: false,
+    sidebarMode: "compact",
+    compactLayout: true,
+    newTabDensity: "compact",
+    compactTabs: true,
+    tabCloseButtonMode: "hover",
+    defaultZoom: 1.2,
+    askDownloadLocation: true,
+    downloadPath: path.join(dir, "downloads"),
+  });
   storage.saveSession({
     tabs: [
       { url: "https://example.com/", title: "Example" },
@@ -36,6 +52,20 @@ function tempDir() {
   const reloaded = createStorage(dir);
   assert.equal(reloaded.getSettings().httpsFirst, false);
   assert.equal(reloaded.getSettings().searchEngine, "duckduckgo");
+  assert.equal(reloaded.getSettings().startupBehavior, "restore");
+  assert.equal(reloaded.getSettings().restoreSession, true);
+  assert.equal(reloaded.getSettings().newTabPage, "blank");
+  assert.equal(reloaded.getSettings().theme, "light");
+  assert.equal(reloaded.getSettings().accentColor, "blue");
+  assert.equal(reloaded.getSettings().showSidebar, false);
+  assert.equal(reloaded.getSettings().sidebarMode, "compact");
+  assert.equal(reloaded.getSettings().compactLayout, true);
+  assert.equal(reloaded.getSettings().newTabDensity, "compact");
+  assert.equal(reloaded.getSettings().compactTabs, true);
+  assert.equal(reloaded.getSettings().tabCloseButtonMode, "hover");
+  assert.equal(reloaded.getSettings().defaultZoom, 1.2);
+  assert.equal(reloaded.getSettings().askDownloadLocation, true);
+  assert.equal(reloaded.getSettings().downloadPath, path.join(dir, "downloads"));
   assert.deepEqual(reloaded.getSession().tabs, [
     { url: "https://example.com/", title: "Example" },
   ]);

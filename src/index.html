@@ -8,6 +8,10 @@
 </head>
 <body>
   <div id="tab-bar">
+    <div class="brand" aria-label="Nyra">
+      <span class="brand-mark">N</span>
+      <span class="brand-name">Nyra</span>
+    </div>
     <div class="tabs" id="tabs"></div>
     <button id="new-tab">+</button>
   </div>
@@ -17,17 +21,65 @@
     <button id="forward">→</button>
     <button id="reload-stop" title="Reload">↻</button>
     <button id="home" title="Home">⌂</button>
-    <input id="url" type="text" placeholder="Enter URL..." />
+    <button id="toggle-sidebar" title="Toggle sidebar">☰</button>
+    <div class="address-shell">
+      <span class="address-icon">♢</span>
+      <input id="url" type="text" placeholder="Search or enter address" />
+    </div>
     <button id="bookmark" title="Bookmark this page">☆</button>
+    <button id="download" title="Downloads" aria-haspopup="true" aria-expanded="false">↓</button>
     <button id="history" title="Open history">◷</button>
     <button id="settings" title="Open settings">⚙</button>
   </div>
 
-  <div id="webviews-container">
-    
+  <div id="content-shell">
+    <aside id="sidebar" aria-label="Nyra navigation">
+      <nav class="side-nav">
+        <button class="side-link active" id="side-home" type="button" data-tooltip="Home" title="Home">
+          <span class="side-icon">⌂</span>
+          <span class="side-label">Home</span>
+        </button>
+        <button class="side-link" id="side-history" type="button" data-tooltip="History" title="History">
+          <span class="side-icon">◷</span>
+          <span class="side-label">History</span>
+        </button>
+        <button class="side-link" id="side-bookmarks" type="button" data-tooltip="Bookmarks" title="Bookmarks">
+          <span class="side-icon">☆</span>
+          <span class="side-label">Bookmarks</span>
+        </button>
+        <button class="side-link" id="side-downloads" type="button" data-tooltip="Downloads" title="Downloads">
+          <span class="side-icon">↓</span>
+          <span class="side-label">Downloads</span>
+        </button>
+        <button class="side-link muted" type="button" disabled data-tooltip="Extensions" title="Extensions">
+          <span class="side-icon">♧</span>
+          <span class="side-label">Extensions</span>
+        </button>
+        <button class="side-link" id="side-settings" type="button" data-tooltip="Settings" title="Settings">
+          <span class="side-icon">⚙</span>
+          <span class="side-label">Settings</span>
+        </button>
+      </nav>
+      <button class="side-link private" type="button" disabled data-tooltip="Private" title="Private">
+        <span class="side-icon">☾</span>
+        <span class="side-label">Private</span>
+      </button>
+    </aside>
+
+    <div id="webviews-container">
+      <div id="downloads-menu" class="downloads-menu" hidden>
+        <div class="downloads-menu-header">
+          <strong>Downloads</strong>
+          <button id="clear-downloads" type="button">Clear list</button>
+        </div>
+        <div id="downloads-list" class="downloads-list"></div>
+        <button id="open-downloads-folder" class="downloads-folder" type="button">Open downloads folder</button>
+      </div>
+    </div>
   </div>
 
   <script src="url-utils.js"></script>
+  <script src="settings-utils.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

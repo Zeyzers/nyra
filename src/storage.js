@@ -5,7 +5,20 @@ const DEFAULT_STATE = Object.freeze({
   settings: {
     httpsFirst: true,
     searchEngine: 'duckduckgo',
-    restoreSession: true
+    restoreSession: true,
+    startupBehavior: 'newtab',
+    newTabPage: 'start',
+    theme: 'dark',
+    accentColor: 'pink',
+    showSidebar: true,
+    sidebarMode: 'expanded',
+    compactLayout: false,
+    newTabDensity: 'comfortable',
+    compactTabs: false,
+    tabCloseButtonMode: 'always',
+    defaultZoom: 1,
+    askDownloadLocation: false,
+    downloadPath: ''
   },
   session: {
     tabs: []
@@ -15,23 +28,74 @@ const DEFAULT_STATE = Object.freeze({
 });
 
 const MAX_HISTORY_ENTRIES = 100;
+const VALID_THEMES = new Set(['dark', 'light', 'system']);
+const VALID_ACCENTS = new Set(['pink', 'blue', 'purple', 'green', 'orange']);
+const VALID_SEARCH_ENGINES = new Set(['duckduckgo', 'google', 'bing']);
+const VALID_STARTUP_BEHAVIORS = new Set(['newtab', 'restore']);
+const VALID_NEW_TAB_PAGES = new Set(['start', 'blank']);
+const VALID_SIDEBAR_MODES = new Set(['expanded', 'compact']);
+const VALID_NEW_TAB_DENSITIES = new Set(['comfortable', 'compact']);
+const VALID_TAB_CLOSE_MODES = new Set(['always', 'hover']);
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
 function normalizeSettings(settings = {}) {
+  const defaultZoom = Number(settings.defaultZoom);
+  const restoreSession = typeof settings.restoreSession === 'boolean'
+    ? settings.restoreSession
+    : DEFAULT_STATE.settings.restoreSession;
+  const startupBehavior = VALID_STARTUP_BEHAVIORS.has(settings.startupBehavior)
+    ? settings.startupBehavior
+    : restoreSession ? 'restore' : DEFAULT_STATE.settings.startupBehavior;
+
   return {
     ...clone(DEFAULT_STATE.settings),
     httpsFirst: typeof settings.httpsFirst === 'boolean'
       ? settings.httpsFirst
       : DEFAULT_STATE.settings.httpsFirst,
-    searchEngine: settings.searchEngine === 'duckduckgo'
+    searchEngine: VALID_SEARCH_ENGINES.has(settings.searchEngine)
       ? settings.searchEngine
       : DEFAULT_STATE.settings.searchEngine,
-    restoreSession: typeof settings.restoreSession === 'boolean'
-      ? settings.restoreSession
-      : DEFAULT_STATE.settings.restoreSession
+    restoreSession: startupBehavior === 'restore',
+    startupBehavior,
+    newTabPage: VALID_NEW_TAB_PAGES.has(settings.newTabPage)
+      ? settings.newTabPage
+      : DEFAULT_STATE.settings.newTabPage,
+    theme: VALID_THEMES.has(settings.theme)
+      ? settings.theme
+      : DEFAULT_STATE.settings.theme,
+    accentColor: VALID_ACCENTS.has(settings.accentColor)
+      ? settings.accentColor
+      : DEFAULT_STATE.settings.accentColor,
+    showSidebar: typeof settings.showSidebar === 'boolean'
+      ? settings.showSidebar
+      : DEFAULT_STATE.settings.showSidebar,
+    sidebarMode: VALID_SIDEBAR_MODES.has(settings.sidebarMode)
+      ? settings.sidebarMode
+      : settings.showSidebar === false ? 'compact' : DEFAULT_STATE.settings.sidebarMode,
+    compactLayout: typeof settings.compactLayout === 'boolean'
+      ? settings.compactLayout
+      : DEFAULT_STATE.settings.compactLayout,
+    newTabDensity: VALID_NEW_TAB_DENSITIES.has(settings.newTabDensity)
+      ? settings.newTabDensity
+      : DEFAULT_STATE.settings.newTabDensity,
+    compactTabs: typeof settings.compactTabs === 'boolean'
+      ? settings.compactTabs
+      : DEFAULT_STATE.settings.compactTabs,
+    tabCloseButtonMode: VALID_TAB_CLOSE_MODES.has(settings.tabCloseButtonMode)
+      ? settings.tabCloseButtonMode
+      : DEFAULT_STATE.settings.tabCloseButtonMode,
+    defaultZoom: Number.isFinite(defaultZoom)
+      ? Math.min(1.5, Math.max(0.75, Math.round(defaultZoom * 20) / 20))
+      : DEFAULT_STATE.settings.defaultZoom,
+    askDownloadLocation: typeof settings.askDownloadLocation === 'boolean'
+      ? settings.askDownloadLocation
+      : DEFAULT_STATE.settings.askDownloadLocation,
+    downloadPath: typeof settings.downloadPath === 'string'
+      ? settings.downloadPath
+      : DEFAULT_STATE.settings.downloadPath
   };
 }
 
@@ -135,11 +199,20 @@ function createStorage(userDataDir, filename = 'nyra-state.json') {
   }
 
   function updateSettings(partialSettings) {
+    const normalizedPartial = { ...(partialSettings || {}) };
+
+    if (
+      Object.prototype.hasOwnProperty.call(normalizedPartial, 'restoreSession') &&
+      !Object.prototype.hasOwnProperty.call(normalizedPartial, 'startupBehavior')
+    ) {
+      normalizedPartial.startupBehavior = normalizedPartial.restoreSession ? 'restore' : 'newtab';
+    }
+
     return writeState({
       ...state,
       settings: normalizeSettings({
         ...state.settings,
-        ...(partialSettings || {})
+        ...normalizedPartial
       })
     }).settings;
   }

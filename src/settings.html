@@ -8,85 +8,348 @@
   </head>
   <body>
     <main class="settings-shell">
+      <aside class="settings-nav" aria-label="Settings categories">
+        <button class="settings-nav-item active" type="button" data-section="general"><span>⌂</span>General</button>
+        <button class="settings-nav-item" type="button" data-section="appearance"><span>◌</span>Appearance</button>
+        <button class="settings-nav-item" type="button" data-section="privacy"><span>◇</span>Privacy & Security</button>
+        <button class="settings-nav-item" type="button" data-section="search"><span>⌕</span>Search</button>
+        <button class="settings-nav-item" type="button" data-section="tabs"><span>▣</span>Tabs</button>
+        <button class="settings-nav-item" type="button" data-section="downloads"><span>↓</span>Downloads</button>
+        <button class="settings-nav-item" type="button" data-section="shortcuts"><span>⌘</span>Shortcuts</button>
+        <button class="settings-nav-item" type="button" data-section="about"><span>ⓘ</span>About Nyra</button>
+      </aside>
+
       <section class="settings-card">
-        <p class="eyebrow">nyra://settings</p>
-        <h1>Settings</h1>
-        <p class="intro">Small controls for Nyra's privacy-first browsing behavior.</p>
-
-        <label class="setting-row">
-          <span>
-            <strong>HTTPS-first navigation</strong>
-            <small>Bare domains open with https:// when enabled.</small>
-          </span>
-          <input id="https-first" type="checkbox" />
-        </label>
-
-        <label class="setting-row">
-          <span>
-            <strong>Search engine</strong>
-            <small>DuckDuckGo is currently the only implemented search provider.</small>
-          </span>
-          <select id="search-engine">
-            <option value="duckduckgo">DuckDuckGo</option>
-          </select>
-        </label>
-
-        <label class="setting-row">
-          <span>
-            <strong>Restore previous session</strong>
-            <small>Reopen saved tabs the next time Nyra starts.</small>
-          </span>
-          <input id="restore-session" type="checkbox" />
-        </label>
-
-        <button id="reset-state" type="button">Reset settings and saved state</button>
+        <h1 id="section-title">General</h1>
+        <p id="section-description" class="section-description"></p>
+        <div id="settings-content"></div>
         <p id="status" role="status"></p>
       </section>
     </main>
 
+    <script src="settings-utils.js"></script>
     <script>
-      const httpsFirstInput = document.getElementById("https-first");
-      const searchEngineInput = document.getElementById("search-engine");
-      const restoreSessionInput = document.getElementById("restore-session");
-      const resetButton = document.getElementById("reset-state");
+      const navItems = Array.from(document.querySelectorAll(".settings-nav-item"));
+      const sectionTitle = document.getElementById("section-title");
+      const sectionDescription = document.getElementById("section-description");
+      const settingsContent = document.getElementById("settings-content");
       const status = document.getElementById("status");
 
-      const DEFAULT_SETTINGS = {
-        httpsFirst: true,
-        searchEngine: "duckduckgo",
-        restoreSession: true,
+      const SECTION_COPY = {
+        general: ["General", "Core behavior for startup, navigation, zoom and saved state."],
+        appearance: ["Appearance", "Theme, accent and density settings for the Nyra shell."],
+        privacy: ["Privacy & Security", "Privacy defaults, local data controls and isolation details."],
+        search: ["Search", "Choose the search provider used by the address bar and New Tab page."],
+        tabs: ["Tabs", "Session restore, tab density and close button behavior."],
+        downloads: ["Downloads", "Download location and save prompts."],
+        shortcuts: ["Shortcuts", "Keyboard shortcuts currently supported by Nyra."],
+        about: ["About Nyra", "App version, runtime details and project links."],
       };
 
-      let isHydrating = false;
+      let settings = window.NyraSettings.DEFAULT_SETTINGS;
+      let activeSection = "general";
+      let appInfo = null;
+      let downloadsInfo = null;
 
       function setStatus(message) {
         status.textContent = message;
       }
 
-      function renderSettings(settings) {
-        const nextSettings = {
-          ...DEFAULT_SETTINGS,
-          ...settings,
-        };
-
-        isHydrating = true;
-        httpsFirstInput.checked = nextSettings.httpsFirst;
-        searchEngineInput.value = nextSettings.searchEngine;
-        restoreSessionInput.checked = nextSettings.restoreSession;
-        isHydrating = false;
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
       }
 
-      async function saveSettings() {
-        if (isHydrating || !window.nyra) return;
+      function mergeSettings(nextSettings) {
+        settings = window.NyraSettings.normalizeSettings(nextSettings);
+        window.NyraSettings.applyAppearance(settings);
+      }
 
-        const nextSettings = await window.nyra.updateSettings({
-          httpsFirst: httpsFirstInput.checked,
-          searchEngine: searchEngineInput.value,
-          restoreSession: restoreSessionInput.checked,
+      function row(label, description, control, asLabel = false) {
+        const tag = asLabel ? "label" : "div";
+        return `
+          <${tag} class="setting-row">
+            <span>
+              <strong>${label}</strong>
+              <small>${description}</small>
+            </span>
+            ${control}
+          </${tag}>
+        `;
+      }
+
+      function panel(rows) {
+        return `<div class="settings-panel">${rows.join("")}</div>`;
+      }
+
+      function switchControl(id, checked) {
+        return `
+          <label class="switch">
+            <input id="${id}" type="checkbox" ${checked ? "checked" : ""} />
+            <span></span>
+          </label>
+        `;
+      }
+
+      function badge(text) {
+        return `<span class="status-badge">${text}</span>`;
+      }
+
+      function selectControl(id, value, options) {
+        return `
+          <select id="${id}">
+            ${options.map((option) => `
+              <option value="${option.value}" ${option.value === value ? "selected" : ""}>${option.label}</option>
+            `).join("")}
+          </select>
+        `;
+      }
+
+      async function saveSettings(partialSettings) {
+        const nextSettings = await window.nyra.updateSettings(partialSettings);
+        mergeSettings(nextSettings);
+        renderSection(activeSection);
+        setStatus("Saved.");
+      }
+
+      function renderGeneral() {
+        return `
+          ${panel([
+            row("On startup", "Choose whether Nyra opens a fresh tab or restores saved tabs.", selectControl("startup-behavior", settings.startupBehavior, [
+              { value: "newtab", label: "Open New Tab" },
+              { value: "restore", label: "Restore previous session" },
+            ]), true),
+            row("New tab page", "Choose what opens for new tabs.", selectControl("newtab-page", settings.newTabPage, [
+              { value: "start", label: "Nyra Start Page" },
+              { value: "blank", label: "Blank Page" },
+            ]), true),
+            row("Default browser", "Open Windows default-app settings to choose Nyra manually.", `<button id="open-default-apps" class="inline-button" type="button">Open default apps</button>`),
+            row("HTTPS-first navigation", "Bare domains open with https:// when enabled.", switchControl("https-first", settings.httpsFirst), true),
+            row("Search engine", "Used by address bar and New Tab search.", selectControl("search-engine", settings.searchEngine, searchEngineOptions()), true),
+            row("Interface language", "Nyra does not have an i18n system yet.", badge("English")),
+            row("Default page zoom", "Applies to webviews and newly opened pages.", `
+              <div class="zoom-control" aria-label="Zoom">
+                <button id="zoom-out" type="button">-</button>
+                <span>${Math.round(settings.defaultZoom * 100)}%</span>
+                <button id="zoom-in" type="button">+</button>
+              </div>
+            `),
+            row("Restore previous session", "Reopen saved tabs the next time Nyra starts.", switchControl("restore-session", settings.restoreSession), true),
+          ])}
+          <button id="reset-state" type="button">Reset settings and saved state</button>
+        `;
+      }
+
+      function renderAppearance() {
+        return panel([
+          row("Theme", "Choose Nyra's color mode.", selectControl("theme", settings.theme, [
+            { value: "dark", label: "Dark" },
+            { value: "light", label: "Light" },
+            { value: "system", label: "System" },
+          ]), true),
+          row("Accent color", "Applies to active states, toggles and primary controls.", selectControl("accent-color", settings.accentColor, accentOptions()), true),
+          row("Sidebar mode", "Choose full navigation labels or compact icon-only navigation.", selectControl("sidebar-mode", settings.sidebarMode, [
+            { value: "expanded", label: "Expanded" },
+            { value: "compact", label: "Compact" },
+          ]), true),
+          row("Compact layout", "Reduce shell spacing and control heights.", switchControl("compact-layout", settings.compactLayout), true),
+          row("New tab density", "Adjust bookmark spacing on the New Tab page.", selectControl("newtab-density", settings.newTabDensity, [
+            { value: "comfortable", label: "Comfortable" },
+            { value: "compact", label: "Compact" },
+          ]), true),
+        ]);
+      }
+
+      function renderPrivacy() {
+        return `
+          ${panel([
+            row("HTTPS-first navigation", "Bare domains open with https:// when enabled.", switchControl("https-first", settings.httpsFirst), true),
+            row("Clear browsing data", "Clears saved browsing history.", `<button id="clear-history" class="inline-button" type="button">Clear history</button>`),
+          ])}
+          <div class="status-panel" aria-label="Security status">
+            ${statusItem("External links", "Remote pages can only hand off mailto: and tel: protocols externally.", "Restricted")}
+            ${statusItem("Permissions", "Site permission prompts are denied by default until a permission manager exists.", "Denied by default")}
+            ${statusItem("Remote page isolation", "Remote pages run in isolated webviews; Nyra preload is only attached to trusted local pages.", "Enabled")}
+          </div>
+        `;
+      }
+
+      function renderSearch() {
+        return panel([
+          row("Default search engine", "Used by address bar and New Tab search.", selectControl("search-engine", settings.searchEngine, searchEngineOptions()), true),
+        ]);
+      }
+
+      function renderTabs() {
+        return panel([
+          row("Restore previous session", "Reopen saved tabs the next time Nyra starts.", switchControl("restore-session", settings.startupBehavior === "restore"), true),
+          row("Compact tabs", "Reduce tab width and horizontal padding.", switchControl("compact-tabs", settings.compactTabs), true),
+          row("Close button", "Choose whether tab close buttons are always visible or only on hover.", selectControl("tab-close-mode", settings.tabCloseButtonMode, [
+            { value: "always", label: "Always visible" },
+            { value: "hover", label: "On hover" },
+          ]), true),
+        ]);
+      }
+
+      function renderDownloads() {
+        const folder = downloadsInfo?.folder || settings.downloadPath || downloadsInfo?.defaultFolder || "";
+        return panel([
+          row("Download location", "Used for downloads when save prompts are disabled.", `
+            <div class="path-control">
+              <code class="path-value">${escapeHtml(folder)}</code>
+              <button id="change-download-folder" class="inline-button" type="button">Change</button>
+            </div>
+          `),
+          row("Ask where to save", "Show a save dialog before each download.", switchControl("ask-download-location", settings.askDownloadLocation), true),
+          row("Downloads folder", "Open the current download folder.", `<button id="open-downloads-folder" class="inline-button" type="button">Open folder</button>`),
+        ]);
+      }
+
+      function renderShortcuts() {
+        const shortcuts = [
+          ["Ctrl+L", "Focus address bar"],
+          ["Ctrl+T", "New tab"],
+          ["Ctrl+W", "Close active tab"],
+          ["Ctrl+R", "Reload active tab"],
+          ["Alt+Left", "Go back"],
+          ["Alt+Right", "Go forward"],
+          ["Ctrl+Shift+I", "Toggle active webview DevTools"],
+          ["F12", "Toggle active webview DevTools"],
+        ];
+
+        return `<div class="settings-panel shortcut-panel">${shortcuts.map(([keys, action]) => `
+          <div class="shortcut-row">
+            <kbd>${keys}</kbd>
+            <span>${action}</span>
+          </div>
+        `).join("")}</div>`;
+      }
+
+      function renderAbout() {
+        const info = appInfo || {};
+        const repository = info.repository || info.homepage || "";
+        return panel([
+          row("Name", "Application name.", badge(escapeHtml(info.name || "Nyra"))),
+          row("Version", "Package version.", badge(escapeHtml(info.version || "Unavailable"))),
+          row("Electron", "Runtime version.", badge(escapeHtml(info.electron || "Unavailable"))),
+          row("Chromium", "Embedded browser engine.", badge(escapeHtml(info.chromium || "Unavailable"))),
+          row("Node", "Main process runtime.", badge(escapeHtml(info.node || "Unavailable"))),
+          row("License", "Project license.", badge(escapeHtml(info.license || "Not specified"))),
+          row("Repository", repository ? escapeHtml(repository) : "Repository not configured.", repository ? `<button id="open-repository" class="inline-button" type="button">Open repository</button>` : badge("Unavailable")),
+        ]);
+      }
+
+      function accentOptions() {
+        return Object.entries(window.NyraSettings.ACCENTS).map(([value, accent]) => ({
+          value,
+          label: accent.name,
+        }));
+      }
+
+      function searchEngineOptions() {
+        return Object.entries(window.NyraSettings.SEARCH_ENGINES).map(([value, engine]) => ({
+          value,
+          label: engine.name,
+        }));
+      }
+
+      function statusItem(title, description, value) {
+        return `
+          <div class="security-status">
+            <span>
+              <strong>${title}</strong>
+              <small>${description}</small>
+            </span>
+            ${badge(value)}
+          </div>
+        `;
+      }
+
+      function bindSectionControls() {
+        bindChange("https-first", "checked", (value) => saveSettings({ httpsFirst: value }));
+        bindChange("search-engine", "value", (value) => saveSettings({ searchEngine: value }));
+        bindChange("startup-behavior", "value", (value) => saveSettings({ startupBehavior: value, restoreSession: value === "restore" }));
+        bindChange("newtab-page", "value", (value) => saveSettings({ newTabPage: value }));
+        bindChange("restore-session", "checked", (value) => saveSettings({ startupBehavior: value ? "restore" : "newtab", restoreSession: value }));
+        bindChange("theme", "value", (value) => saveSettings({ theme: value }));
+        bindChange("accent-color", "value", (value) => saveSettings({ accentColor: value }));
+        bindChange("sidebar-mode", "value", (value) => saveSettings({ sidebarMode: value, showSidebar: value === "expanded" }));
+        bindChange("compact-layout", "checked", (value) => saveSettings({ compactLayout: value }));
+        bindChange("newtab-density", "value", (value) => saveSettings({ newTabDensity: value }));
+        bindChange("compact-tabs", "checked", (value) => saveSettings({ compactTabs: value }));
+        bindChange("tab-close-mode", "value", (value) => saveSettings({ tabCloseButtonMode: value }));
+        bindChange("ask-download-location", "checked", (value) => saveSettings({ askDownloadLocation: value }));
+
+        document.getElementById("zoom-out")?.addEventListener("click", () => {
+          saveSettings({ defaultZoom: Math.max(0.75, settings.defaultZoom - 0.05) });
+        });
+        document.getElementById("zoom-in")?.addEventListener("click", () => {
+          saveSettings({ defaultZoom: Math.min(1.5, settings.defaultZoom + 0.05) });
+        });
+        document.getElementById("reset-state")?.addEventListener("click", async () => {
+          const state = await window.nyra.resetState();
+          mergeSettings(state.settings);
+          downloadsInfo = await window.nyra.getDownloadsInfo();
+          renderSection(activeSection);
+          setStatus("Settings and saved state reset.");
+        });
+        document.getElementById("clear-history")?.addEventListener("click", async () => {
+          await window.nyra.clearHistory();
+          setStatus("Browsing history cleared.");
+        });
+        document.getElementById("open-default-apps")?.addEventListener("click", async () => {
+          const result = await window.nyra.openDefaultAppsSettings();
+          setStatus(result.ok ? "Default apps settings opened." : "Default-app settings are only available on Windows.");
+        });
+        document.getElementById("change-download-folder")?.addEventListener("click", async () => {
+          mergeSettings(await window.nyra.chooseDownloadFolder());
+          downloadsInfo = await window.nyra.getDownloadsInfo();
+          renderSection(activeSection);
+          setStatus("Download location updated.");
+        });
+        document.getElementById("open-downloads-folder")?.addEventListener("click", async () => {
+          const result = await window.nyra.openDownloadsFolder();
+          setStatus(result.ok ? "Downloads folder opened." : "Could not open downloads folder.");
+        });
+        document.getElementById("open-repository")?.addEventListener("click", async () => {
+          const repository = appInfo?.repository || appInfo?.homepage;
+          const result = repository ? await window.nyra.openTrustedExternalUrl(repository) : { ok: false };
+          setStatus(result.ok ? "Repository opened." : "Repository link blocked.");
+        });
+      }
+
+      function bindChange(id, property, handler) {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.addEventListener("change", () => handler(input[property]));
+      }
+
+      function renderSection(section) {
+        activeSection = section;
+        const [title, description] = SECTION_COPY[section] || SECTION_COPY.general;
+        sectionTitle.textContent = title;
+        sectionDescription.textContent = description;
+
+        navItems.forEach((item) => {
+          item.classList.toggle("active", item.dataset.section === section);
         });
 
-        renderSettings(nextSettings);
-        setStatus("Saved.");
+        const renderers = {
+          general: renderGeneral,
+          appearance: renderAppearance,
+          privacy: renderPrivacy,
+          search: renderSearch,
+          tabs: renderTabs,
+          downloads: renderDownloads,
+          shortcuts: renderShortcuts,
+          about: renderAbout,
+        };
+
+        settingsContent.innerHTML = (renderers[section] || renderers.general)();
+        bindSectionControls();
       }
 
       async function init() {
@@ -95,17 +358,28 @@
           return;
         }
 
-        renderSettings(await window.nyra.getSettings());
+        const [loadedSettings, loadedAppInfo, loadedDownloadsInfo] = await Promise.all([
+          window.nyra.getSettings(),
+          window.nyra.getAppInfo(),
+          window.nyra.getDownloadsInfo(),
+        ]);
+
+        appInfo = loadedAppInfo;
+        downloadsInfo = loadedDownloadsInfo;
+        mergeSettings(loadedSettings);
+        renderSection(activeSection);
         setStatus("Settings loaded.");
 
-        httpsFirstInput.addEventListener("change", saveSettings);
-        searchEngineInput.addEventListener("change", saveSettings);
-        restoreSessionInput.addEventListener("change", saveSettings);
+        window.nyra.onSettingsChanged((nextSettings) => {
+          mergeSettings(nextSettings);
+          renderSection(activeSection);
+        });
 
-        resetButton.addEventListener("click", async () => {
-          const state = await window.nyra.resetState();
-          renderSettings(state.settings);
-          setStatus("Settings and saved state reset.");
+        navItems.forEach((item) => {
+          item.addEventListener("click", () => {
+            renderSection(item.dataset.section);
+            setStatus("");
+          });
         });
       }
 

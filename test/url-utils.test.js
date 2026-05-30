@@ -15,6 +15,8 @@ const cases = [
   ["127.0.0.1", "https://127.0.0.1/"],
   ["192.168.1.20:8080/path", "https://192.168.1.20:8080/path"],
   ["nyra browser privacy", "https://duckduckgo.com/?q=nyra%20browser%20privacy"],
+  ["nyra browser privacy", "https://www.google.com/search?q=nyra%20browser%20privacy", { searchEngine: "google" }],
+  ["nyra browser privacy", "https://www.bing.com/search?q=nyra%20browser%20privacy", { searchEngine: "bing" }],
   ["example..com", "https://duckduckgo.com/?q=example..com"],
   ["exa_mple.com", "https://duckduckgo.com/?q=exa_mple.com"],
   ["not-a-domain", "https://duckduckgo.com/?q=not-a-domain"],

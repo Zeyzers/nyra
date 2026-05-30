@@ -7,44 +7,90 @@
     <link rel="stylesheet" href="newtab.css" />
   </head>
   <body>
-    <h1>Nyra</h1>
-    <div class="search-bar">
-      <input
-        type="text"
-        id="newtab-search"
-        placeholder="Search or enter URL..."
-      />
-    </div>
-    <section class="bookmarks" aria-labelledby="bookmarks-title">
-      <h2 id="bookmarks-title">Bookmarks</h2>
-      <div id="bookmarks-list" class="bookmarks-list"></div>
-    </section>
+    <main class="newtab-shell">
+      <header class="hero">
+        <div class="hero-brand">
+          <span class="hero-mark">N</span>
+          <h1>Nyra</h1>
+        </div>
+        <div class="search-bar">
+          <input
+            type="text"
+            id="newtab-search"
+            placeholder="Search the web privately"
+          />
+          <button id="newtab-submit" type="button" aria-label="Search">→</button>
+        </div>
+      </header>
+
+      <section class="bookmarks" aria-labelledby="bookmarks-title">
+        <div class="section-heading">
+          <h2 id="bookmarks-title">Bookmarks</h2>
+          <button id="manage-bookmarks" type="button">Manage bookmarks ↗</button>
+        </div>
+        <div id="bookmarks-list" class="bookmarks-list"></div>
+      </section>
+    </main>
+
+    <dialog id="bookmark-dialog" class="bookmark-dialog">
+      <form method="dialog" id="bookmark-form">
+        <header>
+          <strong>Add bookmark</strong>
+          <button id="bookmark-dialog-close" type="button" aria-label="Close">×</button>
+        </header>
+        <label>
+          Name
+          <input id="bookmark-name" type="text" autocomplete="off" required />
+        </label>
+        <label>
+          URL
+          <input id="bookmark-url" type="url" autocomplete="off" required placeholder="https://example.com" />
+        </label>
+        <p id="bookmark-error" role="status"></p>
+        <div class="dialog-actions">
+          <button id="bookmark-cancel" type="button">Cancel</button>
+          <button class="primary" type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
 
     <script src="url-utils.js"></script>
+    <script src="settings-utils.js"></script>
     <script>
       const input = document.getElementById("newtab-search");
+      const submit = document.getElementById("newtab-submit");
       const bookmarksList = document.getElementById("bookmarks-list");
-      let settings = {
-        httpsFirst: true,
-        searchEngine: "duckduckgo",
-        restoreSession: true,
-      };
+      const manageBookmarks = document.getElementById("manage-bookmarks");
+      const bookmarkDialog = document.getElementById("bookmark-dialog");
+      const bookmarkForm = document.getElementById("bookmark-form");
+      const bookmarkName = document.getElementById("bookmark-name");
+      const bookmarkUrl = document.getElementById("bookmark-url");
+      const bookmarkError = document.getElementById("bookmark-error");
+      const bookmarkCancel = document.getElementById("bookmark-cancel");
+      const bookmarkDialogClose = document.getElementById("bookmark-dialog-close");
+      let settings = window.NyraSettings
+        ? window.NyraSettings.DEFAULT_SETTINGS
+        : { httpsFirst: true, searchEngine: "duckduckgo", restoreSession: true };
+
+      function applySettings(nextSettings) {
+        settings = window.NyraSettings
+          ? window.NyraSettings.normalizeSettings(nextSettings)
+          : { ...settings, ...nextSettings };
+
+        if (window.NyraSettings) {
+          window.NyraSettings.applyAppearance(settings);
+        }
+      }
 
       if (window.nyra) {
         window.nyra.getSettings().then((nextSettings) => {
-          settings = {
-            ...settings,
-            ...nextSettings,
-          };
+          applySettings(nextSettings);
         });
 
         window.nyra.getBookmarks().then(renderBookmarks);
 
         window.nyra.onSettingsChanged((nextSettings) => {
-          settings = {
-            ...settings,
-            ...nextSettings,
-          };
+          applySettings(nextSettings);
         });
 
         window.nyra.onBookmarksChanged(renderBookmarks);
@@ -53,32 +99,87 @@
       function renderBookmarks(bookmarks = []) {
         bookmarksList.innerHTML = "";
 
-        if (!bookmarks.length) {
-          const empty = document.createElement("p");
-          empty.className = "empty-list";
-          empty.textContent = "No bookmarks yet.";
-          bookmarksList.appendChild(empty);
-          return;
-        }
-
         bookmarks.forEach((bookmark) => {
           const link = document.createElement("a");
           link.href = bookmark.url;
-          link.textContent = bookmark.title || bookmark.url;
           link.title = bookmark.url;
+          const icon = document.createElement("span");
+          icon.className = "bookmark-icon";
+          icon.textContent = (bookmark.title || bookmark.url).trim().charAt(0).toUpperCase();
+          const label = document.createElement("span");
+          label.className = "bookmark-label";
+          label.textContent = bookmark.title || bookmark.url;
+          link.append(icon, label);
           bookmarksList.appendChild(link);
         });
+
+        const addBookmark = document.createElement("button");
+        addBookmark.className = "add-bookmark";
+        addBookmark.type = "button";
+        addBookmark.innerHTML = '<span class="bookmark-icon">+</span><span class="bookmark-label">Add bookmark</span>';
+        addBookmark.addEventListener("click", openAddBookmarkDialog);
+        bookmarksList.appendChild(addBookmark);
+      }
+
+      function normalizedBookmarkUrl(value) {
+        const normalized = window.NyraUrl.normalizeUrlInput(value, {
+          httpsFirst: settings.httpsFirst,
+          searchEngine: settings.searchEngine,
+        });
+
+        try {
+          const parsed = new URL(normalized);
+          return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
+        } catch {
+          return "";
+        }
+      }
+
+      function openAddBookmarkDialog() {
+        if (!window.nyra) return;
+
+        bookmarkForm.reset();
+        bookmarkError.textContent = "";
+        bookmarkDialog.showModal();
+        bookmarkName.focus();
+      }
+
+      function closeBookmarkDialog() {
+        bookmarkDialog.close();
       }
 
       renderBookmarks();
 
+      function submitSearch() {
+        const query = window.NyraUrl.normalizeUrlInput(input.value, {
+          httpsFirst: settings.httpsFirst,
+          searchEngine: settings.searchEngine,
+        });
+        if (query) window.location.href = query;
+      }
+
       input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          const query = window.NyraUrl.normalizeUrlInput(input.value, {
-            httpsFirst: settings.httpsFirst,
-          });
-          if (query) window.location.href = query;
+        if (e.key === "Enter") submitSearch();
+      });
+      submit.addEventListener("click", submitSearch);
+      manageBookmarks.addEventListener("click", () => {
+        window.location.href = "./bookmarks.html";
+      });
+      bookmarkCancel.addEventListener("click", closeBookmarkDialog);
+      bookmarkDialogClose.addEventListener("click", closeBookmarkDialog);
+      bookmarkForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const url = normalizedBookmarkUrl(bookmarkUrl.value);
+        const title = bookmarkName.value.trim();
+
+        if (!title || !url) {
+          bookmarkError.textContent = "Enter a name and a valid http or https URL.";
+          return;
         }
+
+        const nextBookmarks = await window.nyra.addBookmark({ title, url });
+        renderBookmarks(nextBookmarks);
+        closeBookmarkDialog();
       });
     </script>
 

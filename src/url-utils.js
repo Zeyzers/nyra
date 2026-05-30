@@ -5,15 +5,20 @@
     root.NyraUrl = factory();
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
-  const SEARCH_URL = "https://duckduckgo.com/?q=";
+  const SEARCH_ENGINES = {
+    duckduckgo: (query) => `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+    google: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+    bing: (query) => `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
+  };
   const WEB_SCHEME_RE = /^https?:\/\//i;
   const EXTERNAL_SCHEME_RE = /^(mailto|tel):/i;
   const SAFE_INPUT_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
   const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
   const DOMAIN_LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
 
-  function searchUrl(query) {
-    return SEARCH_URL + encodeURIComponent(query);
+  function searchUrl(query, searchEngine = "duckduckgo") {
+    const buildUrl = SEARCH_ENGINES[searchEngine] || SEARCH_ENGINES.duckduckgo;
+    return buildUrl(query);
   }
 
   function hasWhitespace(value) {
@@ -48,11 +53,12 @@
 
   function normalizeUrlInput(input, options = {}) {
     const httpsFirst = options.httpsFirst !== false;
+    const searchEngine = options.searchEngine || "duckduckgo";
     const value = String(input || "").trim();
     if (!value) return "";
 
     if (hasWhitespace(value)) {
-      return searchUrl(value);
+      return searchUrl(value, searchEngine);
     }
 
     if (WEB_SCHEME_RE.test(value) || EXTERNAL_SCHEME_RE.test(value)) {
@@ -61,9 +67,9 @@
         if (SAFE_INPUT_PROTOCOLS.has(url.protocol)) {
           return url.href;
         }
-        return searchUrl(value);
+        return searchUrl(value, searchEngine);
       } catch {
-        return searchUrl(value);
+        return searchUrl(value, searchEngine);
       }
     }
 
@@ -77,7 +83,7 @@
       // Fall through to search for malformed domain-like input.
     }
 
-    return searchUrl(value);
+    return searchUrl(value, searchEngine);
   }
 
   return {
