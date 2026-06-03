@@ -3,65 +3,76 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="assets/NyraLogo.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
   <title>Nyra</title>
 </head>
 <body>
+  <div id="startup-intro" class="startup-intro" aria-hidden="true">
+    <div class="startup-orbit">
+      <span class="startup-ring"></span>
+      <img class="startup-logo" src="assets/NyraLogo.svg" alt="" />
+    </div>
+    <div class="startup-wordmark">Nyra</div>
+  </div>
+
   <div id="tab-bar">
     <div class="brand" aria-label="Nyra">
-      <span class="brand-mark">N</span>
+      <img class="brand-mark" src="assets/NyraLogo.svg" alt="" />
       <span class="brand-name">Nyra</span>
     </div>
     <div class="tabs" id="tabs"></div>
-    <button id="new-tab">+</button>
+    <button id="new-tab" title="New tab"><span data-icon="plus"></span></button>
   </div>
 
   <div id="navbar">
-    <button id="back">←</button>
-    <button id="forward">→</button>
-    <button id="reload-stop" title="Reload">↻</button>
-    <button id="home" title="Home">⌂</button>
-    <button id="toggle-sidebar" title="Toggle sidebar">☰</button>
+    <button id="back" title="Back"><span data-icon="arrow-left"></span></button>
+    <button id="forward" title="Forward"><span data-icon="arrow-right"></span></button>
+    <button id="reload-stop" title="Reload"><span data-icon="reload"></span></button>
+    <button id="home" title="Home"><span data-icon="home"></span></button>
+    <button id="toggle-sidebar" title="Toggle sidebar"><span data-icon="layout"></span></button>
     <div class="address-shell">
-      <span class="address-icon">♢</span>
+      <button id="site-info-button" class="address-icon" type="button" title="Site information"><span data-icon="shield"></span></button>
       <input id="url" type="text" placeholder="Search or enter address" />
     </div>
-    <button id="bookmark" title="Bookmark this page">☆</button>
-    <button id="download" title="Downloads" aria-haspopup="true" aria-expanded="false">↓</button>
-    <button id="history" title="Open history">◷</button>
-    <button id="settings" title="Open settings">⚙</button>
+    <button id="bookmark" title="Bookmark this page"><span data-icon="bookmark"></span></button>
+    <button id="download" title="Downloads" aria-haspopup="true" aria-expanded="false"><span data-icon="download"></span></button>
+    <button id="history" title="Open history"><span data-icon="history"></span></button>
+    <button id="settings" title="Open settings"><span data-icon="gear"></span></button>
   </div>
+
+  <div id="bookmarks-bar" class="bookmarks-bar" hidden></div>
 
   <div id="content-shell">
     <aside id="sidebar" aria-label="Nyra navigation">
       <nav class="side-nav">
         <button class="side-link active" id="side-home" type="button" data-tooltip="Home" title="Home">
-          <span class="side-icon">⌂</span>
+          <span class="side-icon" data-icon="home"></span>
           <span class="side-label">Home</span>
         </button>
         <button class="side-link" id="side-history" type="button" data-tooltip="History" title="History">
-          <span class="side-icon">◷</span>
+          <span class="side-icon" data-icon="history"></span>
           <span class="side-label">History</span>
         </button>
         <button class="side-link" id="side-bookmarks" type="button" data-tooltip="Bookmarks" title="Bookmarks">
-          <span class="side-icon">☆</span>
+          <span class="side-icon" data-icon="bookmark"></span>
           <span class="side-label">Bookmarks</span>
         </button>
         <button class="side-link" id="side-downloads" type="button" data-tooltip="Downloads" title="Downloads">
-          <span class="side-icon">↓</span>
+          <span class="side-icon" data-icon="download"></span>
           <span class="side-label">Downloads</span>
         </button>
-        <button class="side-link muted" type="button" disabled data-tooltip="Extensions" title="Extensions">
-          <span class="side-icon">♧</span>
+        <button class="side-link" id="side-extensions" type="button" data-tooltip="Extensions" title="Extensions">
+          <span class="side-icon" data-icon="extensions"></span>
           <span class="side-label">Extensions</span>
         </button>
         <button class="side-link" id="side-settings" type="button" data-tooltip="Settings" title="Settings">
-          <span class="side-icon">⚙</span>
+          <span class="side-icon" data-icon="gear"></span>
           <span class="side-label">Settings</span>
         </button>
       </nav>
-      <button class="side-link private" type="button" disabled data-tooltip="Private" title="Private">
-        <span class="side-icon">☾</span>
+      <button class="side-link private" id="side-private" type="button" data-tooltip="Private" title="Private">
+        <span class="side-icon" data-icon="moon"></span>
         <span class="side-label">Private</span>
       </button>
     </aside>
@@ -70,16 +81,47 @@
       <div id="downloads-menu" class="downloads-menu" hidden>
         <div class="downloads-menu-header">
           <strong>Downloads</strong>
-          <button id="clear-downloads" type="button">Clear list</button>
+          <button id="clear-downloads" type="button">Clear downloads history</button>
         </div>
         <div id="downloads-list" class="downloads-list"></div>
         <button id="open-downloads-folder" class="downloads-folder" type="button">Open downloads folder</button>
+      </div>
+      <div id="site-info-menu" class="site-info-menu" hidden></div>
+      <div id="tab-context-menu" class="tab-context-menu" hidden></div>
+      <dialog id="permission-dialog" class="permission-dialog">
+        <form method="dialog">
+          <strong id="permission-title">Permission request</strong>
+          <p id="permission-message"></p>
+          <div class="dialog-actions">
+            <button id="permission-deny" type="button">Deny</button>
+            <button id="permission-allow" class="primary" type="button">Allow</button>
+          </div>
+        </form>
+      </dialog>
+      <div id="password-prompt" class="password-prompt" hidden>
+        <div>
+          <strong id="password-prompt-title">Password</strong>
+          <p id="password-prompt-message"></p>
+          <div id="password-prompt-accounts" class="password-prompt-accounts" hidden></div>
+        </div>
+        <div class="password-prompt-actions">
+          <button id="password-prompt-never" type="button" hidden>Never for this site</button>
+          <button id="password-prompt-dismiss" type="button">Not now</button>
+          <button id="password-prompt-confirm" class="primary" type="button">Save</button>
+        </div>
+      </div>
+      <div id="command-palette" class="command-palette" hidden>
+        <div class="command-palette-panel" role="dialog" aria-modal="true" aria-label="Command palette">
+          <input id="command-search" type="search" placeholder="Type a command" autocomplete="off" />
+          <div id="command-list" class="command-list"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <script src="url-utils.js"></script>
   <script src="settings-utils.js"></script>
+  <script src="icons.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

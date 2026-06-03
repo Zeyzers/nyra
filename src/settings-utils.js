@@ -45,6 +45,7 @@
     defaultZoom: 1,
     askDownloadLocation: false,
     downloadPath: "",
+    hardwareAcceleration: true,
   };
 
   function normalizeSettings(settings = {}) {

@@ -50,6 +50,22 @@ body {
   min-height: 100vh;
 }
 
+.nyra-icon {
+  display: block;
+  height: 18px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.85;
+  width: 18px;
+}
+
+.nyra-icon path,
+.nyra-icon circle,
+.nyra-icon rect {
+  fill: none;
+}
+
 .newtab-shell {
   margin: 0 auto;
   max-width: 860px;
@@ -71,10 +87,10 @@ body {
 }
 
 .hero-mark {
-  color: var(--accent);
-  font-size: 64px;
-  font-weight: 900;
-  line-height: 1;
+  display: block;
+  flex: 0 0 auto;
+  height: 64px;
+  width: 64px;
 }
 
 h1 {

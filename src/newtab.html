@@ -4,13 +4,14 @@
     <meta charset="UTF-8" />
     <title>New Tab - Nyra</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="assets/NyraLogo.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="newtab.css" />
   </head>
   <body>
     <main class="newtab-shell">
       <header class="hero">
         <div class="hero-brand">
-          <span class="hero-mark">N</span>
+          <img class="hero-mark" src="assets/NyraLogo.svg" alt="" />
           <h1>Nyra</h1>
         </div>
         <div class="search-bar">
@@ -19,14 +20,14 @@
             id="newtab-search"
             placeholder="Search the web privately"
           />
-          <button id="newtab-submit" type="button" aria-label="Search">→</button>
+          <button id="newtab-submit" type="button" aria-label="Search"><span data-icon="arrow-right"></span></button>
         </div>
       </header>
 
       <section class="bookmarks" aria-labelledby="bookmarks-title">
         <div class="section-heading">
           <h2 id="bookmarks-title">Bookmarks</h2>
-          <button id="manage-bookmarks" type="button">Manage bookmarks ↗</button>
+          <button id="manage-bookmarks" type="button">Manage bookmarks</button>
         </div>
         <div id="bookmarks-list" class="bookmarks-list"></div>
       </section>
@@ -36,7 +37,7 @@
       <form method="dialog" id="bookmark-form">
         <header>
           <strong>Add bookmark</strong>
-          <button id="bookmark-dialog-close" type="button" aria-label="Close">×</button>
+          <button id="bookmark-dialog-close" type="button" aria-label="Close"><span data-icon="close"></span></button>
         </header>
         <label>
           Name
@@ -56,7 +57,9 @@
 
     <script src="url-utils.js"></script>
     <script src="settings-utils.js"></script>
+    <script src="icons.js"></script>
     <script>
+      window.NyraIcons?.mount(document);
       const input = document.getElementById("newtab-search");
       const submit = document.getElementById("newtab-submit");
       const bookmarksList = document.getElementById("bookmarks-list");
@@ -116,7 +119,8 @@
         const addBookmark = document.createElement("button");
         addBookmark.className = "add-bookmark";
         addBookmark.type = "button";
-        addBookmark.innerHTML = '<span class="bookmark-icon">+</span><span class="bookmark-label">Add bookmark</span>';
+        addBookmark.innerHTML = '<span class="bookmark-icon" data-icon="plus"></span><span class="bookmark-label">Add bookmark</span>';
+        window.NyraIcons?.mount(addBookmark);
         addBookmark.addEventListener("click", openAddBookmarkDialog);
         bookmarksList.appendChild(addBookmark);
       }

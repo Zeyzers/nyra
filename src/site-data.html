@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Site Data - Nyra</title>
+    <link rel="icon" href="assets/NyraLogo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="site-data.css" />
+  </head>
+  <body>
+    <main class="site-data-shell">
+      <header>
+        <div>
+          <h1>Site Data</h1>
+          <p>Review and clear cookies and local storage saved by websites.</p>
+        </div>
+        <div class="actions">
+          <input id="search" type="search" placeholder="Search domains" />
+          <button id="clear-all" type="button">Clear all</button>
+        </div>
+      </header>
+
+      <section class="site-data-panel">
+        <div id="site-data-list" class="site-data-list"></div>
+      </section>
+      <p id="status" role="status"></p>
+    </main>
+
+    <script src="settings-utils.js"></script>
+    <script src="icons.js"></script>
+    <script>
+      window.NyraIcons?.mount(document);
+      const search = document.getElementById("search");
+      const clearAll = document.getElementById("clear-all");
+      const list = document.getElementById("site-data-list");
+      const status = document.getElementById("status");
+      let siteData = [];
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function setStatus(message) {
+        status.textContent = message || "";
+      }
+
+      function filteredData() {
+        const query = search.value.trim().toLowerCase();
+        if (!query) return siteData;
+        return siteData.filter((item) => String(item.domain || "").toLowerCase().includes(query));
+      }
+
+      function render() {
+        const visible = filteredData();
+        clearAll.disabled = siteData.length === 0;
+
+        if (!visible.length) {
+          list.innerHTML = `
+            <div class="empty-state">
+              <span data-icon="shield"></span>
+              <strong>${siteData.length ? "No matching site data" : "No site data saved"}</strong>
+              <p>${siteData.length ? "Try a different search." : "Visited sites with cookies will appear here."}</p>
+            </div>
+          `;
+          window.NyraIcons?.mount(list);
+          return;
+        }
+
+        list.innerHTML = visible.map((item) => `
+          <article class="site-data-item">
+            <span class="site-icon" data-icon="globe"></span>
+            <span>
+              <strong>${escapeHtml(item.domain)}</strong>
+              <small>${Number(item.cookies || 0)} cookie${Number(item.cookies || 0) === 1 ? "" : "s"} saved</small>
+            </span>
+            <button class="clear-domain" type="button" data-domain="${escapeHtml(item.domain)}">Clear</button>
+          </article>
+        `).join("");
+        window.NyraIcons?.mount(list);
+
+        document.querySelectorAll(".clear-domain").forEach((button) => {
+          button.addEventListener("click", async () => {
+            setStatus(`Clearing ${button.dataset.domain}...`);
+            siteData = await window.nyra.clearSiteData(button.dataset.domain);
+            render();
+            setStatus("Site data cleared.");
+          });
+        });
+      }
+
+      async function load() {
+        window.NyraSettings?.applyAppearance(await window.nyra.getSettings());
+        siteData = await window.nyra.getSiteData();
+        render();
+        setStatus(`${siteData.length} domain${siteData.length === 1 ? "" : "s"} with saved data.`);
+      }
+
+      search.addEventListener("input", render);
+      clearAll.addEventListener("click", async () => {
+        setStatus("Clearing all site data...");
+        siteData = await window.nyra.clearAllSiteData();
+        render();
+        setStatus("All site data cleared.");
+      });
+      window.nyra.onSettingsChanged((settings) => window.NyraSettings?.applyAppearance(settings));
+      load().catch((error) => setStatus(error && error.message ? error.message : "Site data failed to load."));
+    </script>
+  </body>
+</html>

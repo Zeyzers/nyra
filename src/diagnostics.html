@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Diagnostics - Nyra</title>
+    <link rel="icon" href="assets/NyraLogo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="diagnostics.css" />
+  </head>
+  <body>
+    <main class="diagnostics-shell">
+      <header>
+        <div>
+          <h1>Diagnostics</h1>
+          <p>Startup, GPU, cache and recovery tools for Nyra.</p>
+        </div>
+        <button id="refresh" type="button"><span data-icon="reload"></span>Refresh</button>
+      </header>
+
+      <section class="diagnostics-grid">
+        <article class="panel">
+          <h2>Runtime</h2>
+          <div id="runtime-list" class="key-list"></div>
+        </article>
+        <article class="panel">
+          <h2>Profile</h2>
+          <div id="profile-list" class="key-list"></div>
+          <div class="panel-actions">
+            <button id="open-user-data" type="button">Open user data</button>
+            <button id="open-cache" type="button">Open cache folder</button>
+          </div>
+        </article>
+        <article class="panel">
+          <h2>GPU & Theme</h2>
+          <div id="gpu-list" class="key-list"></div>
+        </article>
+        <article class="panel">
+          <h2>Saved State</h2>
+          <div id="counts-list" class="key-list"></div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="section-row">
+          <div>
+            <h2>Recovery</h2>
+            <p>Cache repair clears Chromium cache only. It does not delete bookmarks, passwords, history or settings.</p>
+          </div>
+          <button id="repair-cache" class="primary" type="button">Repair browser cache</button>
+        </div>
+        <p id="repair-result" class="status"></p>
+      </section>
+
+      <section class="panel">
+        <div class="section-row">
+          <div>
+            <h2>Startup Log</h2>
+            <p>Recent boot messages from the Nyra main process.</p>
+          </div>
+          <button id="open-log" type="button">Open log file</button>
+        </div>
+        <pre id="startup-log"></pre>
+      </section>
+    </main>
+
+    <script src="settings-utils.js"></script>
+    <script src="icons.js"></script>
+    <script>
+      window.NyraIcons?.mount(document);
+      const runtimeList = document.getElementById("runtime-list");
+      const profileList = document.getElementById("profile-list");
+      const gpuList = document.getElementById("gpu-list");
+      const countsList = document.getElementById("counts-list");
+      const startupLog = document.getElementById("startup-log");
+      const repairResult = document.getElementById("repair-result");
+      let diagnostics = null;
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function rows(items) {
+        return items.map(([label, value]) => `
+          <div class="key-row">
+            <span>${escapeHtml(label)}</span>
+            <code>${escapeHtml(value || "Unavailable")}</code>
+          </div>
+        `).join("");
+      }
+
+      function render() {
+        if (!diagnostics) return;
+
+        runtimeList.innerHTML = rows([
+          ["Nyra", diagnostics.app?.version],
+          ["Electron", diagnostics.runtime?.electron],
+          ["Chromium", diagnostics.runtime?.chromium],
+          ["Node", diagnostics.runtime?.node],
+          ["Platform", `${diagnostics.app?.platform || ""} ${diagnostics.app?.arch || ""}`.trim()],
+          ["Safe mode", diagnostics.app?.safeMode ? "Enabled" : "Disabled"],
+        ]);
+        profileList.innerHTML = rows([
+          ["User data", diagnostics.paths?.userData],
+          ["State file", diagnostics.paths?.stateFile],
+          ["Startup log", diagnostics.paths?.startupLog],
+          ["Downloads", diagnostics.paths?.downloads],
+        ]);
+        gpuList.innerHTML = rows([
+          ["Hardware acceleration setting", diagnostics.settings?.hardwareAcceleration ? "Enabled" : "Disabled"],
+          ["Applied at startup", diagnostics.settings?.hardwareAccelerationEnabledAtStartup ? "Enabled" : "Disabled"],
+          ...Object.entries(diagnostics.gpuStatus || {}).slice(0, 8),
+        ]);
+        countsList.innerHTML = rows(Object.entries(diagnostics.counts || {}).map(([key, value]) => [key, value]));
+        startupLog.textContent = (diagnostics.startupLogTail || []).join("\n") || "No startup log entries yet.";
+      }
+
+      async function load() {
+        window.NyraSettings?.applyAppearance(await window.nyra.getSettings());
+        diagnostics = await window.nyra.getDiagnostics();
+        render();
+      }
+
+      document.getElementById("refresh").addEventListener("click", () => load());
+      document.getElementById("open-user-data").addEventListener("click", () => window.nyra.openUserDataFolder());
+      document.getElementById("open-cache").addEventListener("click", () => window.nyra.openCacheFolder());
+      document.getElementById("open-log").addEventListener("click", () => window.nyra.openStartupLog());
+      document.getElementById("repair-cache").addEventListener("click", async () => {
+        repairResult.textContent = "Repairing cache...";
+        const result = await window.nyra.repairBrowserCache();
+        repairResult.textContent = result.ok
+          ? `Cache repaired. Removed ${result.removed.length} cache folder(s).`
+          : `Cache repair completed with ${result.failed.length} issue(s).`;
+        diagnostics = await window.nyra.getDiagnostics();
+        render();
+      });
+
+      window.nyra.onSettingsChanged((settings) => window.NyraSettings?.applyAppearance(settings));
+      load().catch((error) => {
+        repairResult.textContent = error && error.message ? error.message : "Diagnostics failed to load.";
+      });
+    </script>
+  </body>
+</html>

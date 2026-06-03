@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Extensions - Nyra</title>
+    <link rel="icon" href="assets/NyraLogo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="extensions.css" />
+  </head>
+  <body>
+    <main class="extensions-shell">
+      <header>
+        <div>
+          <h1>Extensions</h1>
+          <p>Load trusted unpacked Chrome extensions for your local Nyra profile.</p>
+        </div>
+        <button id="add-extension" class="primary" type="button">
+          <span data-icon="plus"></span>
+          Add unpacked
+        </button>
+      </header>
+
+      <section class="extensions-panel" aria-label="Installed extensions">
+        <div id="extensions-list" class="extensions-list"></div>
+      </section>
+      <p id="status" role="status"></p>
+    </main>
+
+    <script src="settings-utils.js"></script>
+    <script src="icons.js"></script>
+    <script>
+      window.NyraIcons?.mount(document);
+      const list = document.getElementById("extensions-list");
+      const status = document.getElementById("status");
+      const addButton = document.getElementById("add-extension");
+      let extensions = [];
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function applySettings(settings) {
+        window.NyraSettings?.applyAppearance(settings || window.NyraSettings.DEFAULT_SETTINGS);
+      }
+
+      function setStatus(message) {
+        status.textContent = message || "";
+      }
+
+      function render() {
+        if (!extensions.length) {
+          list.innerHTML = `
+            <div class="empty-state">
+              <span data-icon="extensions"></span>
+              <strong>No extensions loaded</strong>
+              <p>Add an unpacked extension folder with a valid manifest.json.</p>
+            </div>
+          `;
+          window.NyraIcons?.mount(list);
+          return;
+        }
+
+        list.innerHTML = extensions.map((extension) => `
+          <article class="extension-item">
+            <span class="extension-icon" data-icon="extensions"></span>
+            <div class="extension-main">
+              <strong>${escapeHtml(extension.name || "Unpacked extension")}</strong>
+              <small>${escapeHtml([
+                extension.version ? `Version ${extension.version}` : "Version unavailable",
+                extension.manifestVersion ? `Manifest V${extension.manifestVersion}` : "",
+                extension.extensionId ? `ID ${extension.extensionId}` : "",
+              ].filter(Boolean).join(" · "))}</small>
+              <code>${escapeHtml(extension.path)}</code>
+              <p class="extension-permissions">${escapeHtml((extension.permissions || []).length ? extension.permissions.join(", ") : "No declared permissions")}</p>
+              ${extension.lastError ? `<p class="extension-error">${escapeHtml(extension.lastError)}</p>` : ""}
+            </div>
+            <div class="extension-actions">
+              <span class="status-chip">${extension.loaded ? "Loaded" : extension.enabled ? "Pending" : "Disabled"}</span>
+              <label class="switch" title="Enable extension">
+                <input class="toggle-extension" type="checkbox" data-extension-id="${escapeHtml(extension.id)}" ${extension.enabled ? "checked" : ""} />
+                <span></span>
+              </label>
+              <button class="reload-extension" type="button" data-extension-id="${escapeHtml(extension.id)}">Reload</button>
+              <button class="open-extension-folder" type="button" data-extension-id="${escapeHtml(extension.id)}">Folder</button>
+              <button class="remove-extension" type="button" data-extension-id="${escapeHtml(extension.id)}">Remove</button>
+            </div>
+          </article>
+        `).join("");
+        window.NyraIcons?.mount(list);
+
+        document.querySelectorAll(".toggle-extension").forEach((input) => {
+          input.addEventListener("change", async () => {
+            setStatus("Updating extension...");
+            extensions = await window.nyra.setExtensionEnabled(input.dataset.extensionId, input.checked);
+            render();
+            setStatus("Saved.");
+          });
+        });
+
+        document.querySelectorAll(".remove-extension").forEach((button) => {
+          button.addEventListener("click", async () => {
+            setStatus("Removing extension...");
+            extensions = await window.nyra.removeExtension(button.dataset.extensionId);
+            render();
+            setStatus("Extension removed.");
+          });
+        });
+        document.querySelectorAll(".reload-extension").forEach((button) => {
+          button.addEventListener("click", async () => {
+            setStatus("Reloading extension...");
+            extensions = await window.nyra.reloadExtension(button.dataset.extensionId);
+            render();
+            setStatus("Extension reloaded.");
+          });
+        });
+        document.querySelectorAll(".open-extension-folder").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const result = await window.nyra.openExtensionFolder(button.dataset.extensionId);
+            setStatus(result.ok ? "Extension folder opened." : "Could not open extension folder.");
+          });
+        });
+      }
+
+      async function load() {
+        applySettings(await window.nyra.getSettings());
+        extensions = await window.nyra.getExtensions();
+        render();
+      }
+
+      addButton.addEventListener("click", async () => {
+        setStatus("Choose an unpacked extension folder.");
+        const result = await window.nyra.addExtension();
+        if (result && result.error) {
+          extensions = result.extensions || extensions;
+          render();
+          setStatus(result.error);
+          return;
+        }
+
+        extensions = Array.isArray(result) ? result : result.extensions || [];
+        render();
+        setStatus("Extension added.");
+      });
+
+      window.nyra.onSettingsChanged((settings) => applySettings(settings));
+      window.nyra.onExtensionsChanged((nextExtensions) => {
+        extensions = Array.isArray(nextExtensions) ? nextExtensions : [];
+        render();
+      });
+
+      load().catch((error) => {
+        setStatus(error && error.message ? error.message : "Extensions failed to load.");
+      });
+    </script>
+  </body>
+</html>

@@ -1,12 +1,17 @@
 {
   "name": "nyra-browser",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Nyra is a minimal, personal web browser built with Electron.   Fast, distraction-free, privacy-first — and fully yours.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node test/url-utils.test.js && node test/settings-utils.test.js && node test/storage.test.js && node test/error-utils.test.js",
-    "lint": "node --check main.js && node --check preload.js && node --check src/storage.js && node --check src/url-utils.js && node --check src/settings-utils.js && node --check src/error-utils.js && node --check src/renderer.js && node --check test/url-utils.test.js && node --check test/settings-utils.test.js && node --check test/storage.test.js && node --check test/error-utils.test.js",
+    "dist": "electron-builder --win nsis portable",
+    "dist:linux": "electron-builder --linux tar.gz",
+    "dist:linux:full": "electron-builder --linux AppImage deb tar.gz",
+    "dist:all": "electron-builder --win nsis portable --linux AppImage deb tar.gz",
+    "pack": "electron-builder --dir",
+    "test": "node test/url-utils.test.js && node test/settings-utils.test.js && node test/storage.test.js && node test/password-store.test.js && node test/error-utils.test.js",
+    "lint": "node --check main.js && node --check preload.js && node --check src/storage.js && node --check src/password-store.js && node --check src/url-utils.js && node --check src/settings-utils.js && node --check src/icons.js && node --check src/error-utils.js && node --check src/renderer.js && node --check test/url-utils.test.js && node --check test/settings-utils.test.js && node --check test/storage.test.js && node --check test/password-store.test.js && node --check test/error-utils.test.js",
     "audit": "npm audit"
   },
   "repository": {
@@ -27,7 +32,60 @@
     "url": "https://github.com/zeyzers/nyra/issues"
   },
   "homepage": "https://github.com/zeyzers/nyra#readme",
+  "build": {
+    "appId": "com.zeyzer.nyra",
+    "productName": "Nyra",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "src/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "src/assets/NyraLogo.png",
+        "to": "assets/NyraLogo.png"
+      },
+      {
+        "from": "src/assets/NyraLogo.svg",
+        "to": "assets/NyraLogo.svg"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "src/assets/NyraLogo.ico"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "tar.gz"
+      ],
+      "icon": "src/assets/NyraLogo.png",
+      "category": "Network",
+      "artifactName": "Nyra.${ext}",
+      "maintainer": "Zeyzer <zeyzers@users.noreply.github.com>"
+    },
+    "nsis": {
+      "artifactName": "NyraSetup.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "Nyra.${ext}"
+    }
+  },
   "devDependencies": {
-    "electron": "^41.3.0"
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1"
   }
 }

@@ -63,6 +63,22 @@ input {
   font: inherit;
 }
 
+.nyra-icon {
+  display: block;
+  height: 18px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.85;
+  width: 18px;
+}
+
+.nyra-icon path,
+.nyra-icon circle,
+.nyra-icon rect {
+  fill: none;
+}
+
 .settings-shell {
   display: grid;
   grid-template-columns: 184px minmax(0, 940px);
@@ -407,6 +423,178 @@ kbd {
   border-radius: 9px;
   margin-top: 14px;
   overflow: hidden;
+}
+
+.permissions-panel {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  margin-top: 14px;
+  overflow: hidden;
+}
+
+.site-data-panel {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  margin-top: 14px;
+  overflow: hidden;
+}
+
+.saved-passwords-panel {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  margin-top: 14px;
+  overflow: hidden;
+}
+
+.saved-passwords-header {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.025);
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 240px) auto;
+  min-height: 52px;
+  padding: 10px 14px;
+}
+
+.saved-passwords-header strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.saved-passwords-header input {
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  color: var(--control-text);
+  height: 34px;
+  outline: none;
+  padding: 0 10px;
+}
+
+.saved-password-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.025);
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr) auto;
+  min-height: 64px;
+  padding: 10px 14px;
+}
+
+.saved-password-row:last-child {
+  border-bottom: 0;
+}
+
+.saved-password-row span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.saved-password-row strong,
+.saved-password-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saved-password-row strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.saved-password-row small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.saved-password-row code {
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: Consolas, "SFMono-Regular", monospace;
+  font-size: 12px;
+  overflow: hidden;
+  padding: 5px 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saved-password-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: end;
+  max-width: 330px;
+}
+
+.permission-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.025);
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 130px auto;
+  min-height: 52px;
+  padding: 10px 14px;
+}
+
+.site-data-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.025);
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 52px;
+  padding: 10px 14px;
+}
+
+.site-data-row:last-child {
+  border-bottom: 0;
+}
+
+.site-data-row span:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.site-data-row strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.site-data-row small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.permission-row:last-child {
+  border-bottom: 0;
+}
+
+.permission-row span:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.permission-row strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.permission-row small,
+.empty-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.empty-status {
+  margin: 0;
+  padding: 14px;
 }
 
 .security-status {

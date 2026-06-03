@@ -52,8 +52,25 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
+}
+
+.nyra-icon {
+  display: block;
+  height: 18px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.85;
+  width: 18px;
+}
+
+.nyra-icon path,
+.nyra-icon circle,
+.nyra-icon rect {
+  fill: none;
 }
 
 .bookmarks-shell {
@@ -86,12 +103,13 @@ header p {
 .bookmark-actions {
   display: grid;
   gap: 8px;
-  grid-template-columns: minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(180px, 1fr) auto auto auto auto auto;
   justify-self: end;
-  width: min(540px, 100%);
+  width: min(760px, 100%);
 }
 
 input,
+select,
 button,
 .bookmark-row-actions a {
   background: var(--control-bg);
@@ -127,10 +145,38 @@ button:hover,
   overflow: hidden;
 }
 
+.folder-list {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.folder-chip {
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 12px;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.folder-chip button {
+  border-radius: 999px;
+  font-size: 11px;
+  height: 22px;
+  padding: 0 7px;
+}
+
 .bookmarks-head,
 .bookmark-item {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, 0.9fr) auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.75fr) 120px auto;
 }
 
 .bookmarks-head {
@@ -160,17 +206,27 @@ button:hover,
 }
 
 .bookmark-title {
+  align-items: center;
   color: var(--text);
+  display: inline-flex;
   font-size: 13px;
   font-weight: 560;
+  gap: 9px;
   text-decoration: none;
+}
+
+.bookmark-title img {
+  border-radius: 4px;
+  height: 18px;
+  width: 18px;
 }
 
 .bookmark-title:hover {
   color: var(--accent);
 }
 
-.bookmark-url {
+.bookmark-url,
+.bookmark-folder {
   color: var(--muted);
   font-size: 12px;
 }

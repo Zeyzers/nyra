@@ -1,0 +1,221 @@
+:root {
+  --bg: #0b0f14;
+  --surface: #151b23;
+  --surface-2: #1a212b;
+  --border: rgba(255, 255, 255, 0.08);
+  --text: #f3f5f7;
+  --muted: #9aa4b2;
+  --accent: #ff4f86;
+  --accent-soft: rgba(255, 79, 134, 0.18);
+  --control-bg: rgba(255, 255, 255, 0.045);
+  --control-text: #f3f5f7;
+  --control-border: rgba(255, 255, 255, 0.08);
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body[data-theme="light"] {
+  --bg: #eef2f7;
+  --surface: #ffffff;
+  --surface-2: #eef2f7;
+  --border: rgba(15, 23, 42, 0.12);
+  --text: #101827;
+  --muted: #5f6b7a;
+  --control-bg: #ffffff;
+  --control-text: #101827;
+  --control-border: rgba(15, 23, 42, 0.12);
+}
+
+@media (prefers-color-scheme: light) {
+  body[data-theme="system"] {
+    --bg: #eef2f7;
+    --surface: #ffffff;
+    --surface-2: #eef2f7;
+    --border: rgba(15, 23, 42, 0.12);
+    --text: #101827;
+    --muted: #5f6b7a;
+    --control-bg: #ffffff;
+    --control-text: #101827;
+    --control-border: rgba(15, 23, 42, 0.12);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  margin: 0;
+  min-height: 100vh;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  color: var(--control-text);
+  cursor: pointer;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+input {
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  color: var(--control-text);
+  height: 36px;
+  outline: none;
+  padding: 0 12px;
+}
+
+input:focus {
+  border-color: var(--accent);
+}
+
+.nyra-icon {
+  display: block;
+  height: 18px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.85;
+  width: 18px;
+}
+
+.nyra-icon path,
+.nyra-icon circle,
+.nyra-icon rect {
+  fill: none;
+}
+
+.site-data-shell {
+  display: grid;
+  gap: 18px;
+  margin: 0 auto;
+  max-width: 980px;
+  padding: 42px 32px 52px;
+}
+
+header {
+  align-items: end;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 28px;
+}
+
+p,
+#status {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.site-data-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.site-data-list {
+  display: grid;
+}
+
+.site-data-item {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  min-height: 62px;
+  padding: 12px 14px;
+}
+
+.site-data-item:last-child {
+  border-bottom: 0;
+}
+
+.site-icon {
+  align-items: center;
+  background: var(--accent-soft);
+  border-radius: 9px;
+  color: var(--accent);
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.site-data-item span:not(.site-icon) {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.site-data-item strong,
+.site-data-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-data-item small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.empty-state {
+  align-items: center;
+  color: var(--muted);
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 56px 24px;
+  text-align: center;
+}
+
+.empty-state > span {
+  color: var(--accent);
+}
+
+.empty-state strong {
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  header,
+  .actions {
+    align-items: stretch;
+    display: grid;
+  }
+}

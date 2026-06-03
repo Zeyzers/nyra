@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <title>Bookmarks - Nyra</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="assets/NyraLogo.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="bookmarks.css" />
   </head>
   <body>
@@ -15,14 +16,26 @@
         </div>
         <div class="bookmark-actions">
           <input id="bookmark-search" type="search" placeholder="Search bookmarks" />
+          <select id="bookmark-sort" title="Sort bookmarks">
+            <option value="manual">Manual order</option>
+            <option value="name">Name</option>
+            <option value="site">Site</option>
+            <option value="created">Created date</option>
+          </select>
+          <button id="add-current-page" type="button">Add current page</button>
           <button id="add-bookmark" type="button">Add bookmark</button>
+          <button id="add-folder" type="button">New folder</button>
+          <button id="import-bookmarks" type="button">Import</button>
+          <button id="export-bookmarks" type="button">Export</button>
         </div>
       </header>
 
       <section class="bookmarks-panel" aria-label="Bookmarks manager">
+        <div id="folder-list" class="folder-list"></div>
         <div class="bookmarks-head">
           <span>Name</span>
           <span>URL</span>
+          <span>Folder</span>
           <span></span>
         </div>
         <div id="bookmarks-list" class="bookmarks-list"></div>
@@ -34,7 +47,7 @@
       <form method="dialog" id="bookmark-form">
         <header>
           <strong id="dialog-title">Add bookmark</strong>
-          <button id="dialog-close" type="button" aria-label="Close">×</button>
+          <button id="dialog-close" type="button" aria-label="Close"><span data-icon="close"></span></button>
         </header>
         <label>
           Name
@@ -44,6 +57,10 @@
           URL
           <input id="bookmark-url" type="url" autocomplete="off" required placeholder="https://example.com" />
         </label>
+        <label>
+          Folder
+          <select id="bookmark-folder"></select>
+        </label>
         <p id="bookmark-error" role="status"></p>
         <div class="dialog-actions">
           <button id="dialog-cancel" type="button">Cancel</button>
@@ -52,24 +69,60 @@
       </form>
     </dialog>
 
+    <dialog id="folder-dialog" class="bookmark-dialog">
+      <form method="dialog" id="folder-form">
+        <header>
+          <strong>Bookmark folder</strong>
+          <button id="folder-close" type="button" aria-label="Close"><span data-icon="close"></span></button>
+        </header>
+        <label>
+          Name
+          <input id="folder-name" type="text" autocomplete="off" required />
+        </label>
+        <p id="folder-error" role="status"></p>
+        <div class="dialog-actions">
+          <button id="folder-cancel" type="button">Cancel</button>
+          <button class="primary" type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
     <script src="url-utils.js"></script>
     <script src="settings-utils.js"></script>
+    <script src="icons.js"></script>
     <script>
+      window.NyraIcons?.mount(document);
       const bookmarkSearch = document.getElementById("bookmark-search");
+      const bookmarkSort = document.getElementById("bookmark-sort");
       const bookmarksList = document.getElementById("bookmarks-list");
       const bookmarksCount = document.getElementById("bookmarks-count");
+      const folderList = document.getElementById("folder-list");
+      const addCurrentPageButton = document.getElementById("add-current-page");
       const addBookmarkButton = document.getElementById("add-bookmark");
+      const addFolderButton = document.getElementById("add-folder");
+      const importBookmarksButton = document.getElementById("import-bookmarks");
+      const exportBookmarksButton = document.getElementById("export-bookmarks");
       const bookmarkDialog = document.getElementById("bookmark-dialog");
       const bookmarkForm = document.getElementById("bookmark-form");
       const dialogTitle = document.getElementById("dialog-title");
       const bookmarkName = document.getElementById("bookmark-name");
       const bookmarkUrl = document.getElementById("bookmark-url");
+      const bookmarkFolder = document.getElementById("bookmark-folder");
       const bookmarkError = document.getElementById("bookmark-error");
       const dialogCancel = document.getElementById("dialog-cancel");
       const dialogClose = document.getElementById("dialog-close");
+      const folderDialog = document.getElementById("folder-dialog");
+      const folderForm = document.getElementById("folder-form");
+      const folderName = document.getElementById("folder-name");
+      const folderError = document.getElementById("folder-error");
+      const folderCancel = document.getElementById("folder-cancel");
+      const folderClose = document.getElementById("folder-close");
 
       let bookmarks = [];
-      let editingUrl = "";
+      let folders = [];
+      let editingBookmarkId = "";
+      let editingFolderId = "";
+      let dragBookmarkId = "";
       let settings = window.NyraSettings
         ? window.NyraSettings.DEFAULT_SETTINGS
         : { httpsFirst: true, searchEngine: "duckduckgo" };
@@ -80,6 +133,18 @@
           : { ...settings, ...nextSettings };
 
         if (window.NyraSettings) window.NyraSettings.applyAppearance(settings);
+      }
+
+      function folderNameFor(id) {
+        return folders.find((folder) => folder.id === id)?.name || "Bookmarks";
+      }
+
+      function faviconFor(url) {
+        try {
+          return `${new URL(url).origin}/favicon.ico`;
+        } catch {
+          return "";
+        }
       }
 
       function normalizedBookmarkUrl(value) {
@@ -104,17 +169,59 @@
         }
       }
 
-      function setBookmarks(nextBookmarks = []) {
-        bookmarks = Array.isArray(nextBookmarks) ? nextBookmarks : [];
+      function setBookmarksData(data = {}) {
+        bookmarks = Array.isArray(data.bookmarks) ? data.bookmarks : Array.isArray(data) ? data : [];
+        folders = Array.isArray(data.folders) ? data.folders : folders;
         renderBookmarks();
       }
 
-      function renderBookmarks() {
-        const query = bookmarkSearch.value.trim().toLowerCase();
-        const visibleBookmarks = bookmarks.filter((bookmark) => {
-          const text = `${bookmark.title || ""} ${bookmark.url || ""}`.toLowerCase();
-          return text.includes(query);
+      function sortedBookmarks(items) {
+        const mode = bookmarkSort.value;
+        return [...items].sort((a, b) => {
+          if (mode === "name") return (a.title || a.url).localeCompare(b.title || b.url);
+          if (mode === "site") return siteLabel(a.url).localeCompare(siteLabel(b.url));
+          if (mode === "created") return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+          return (a.folderId || "").localeCompare(b.folderId || "") || Number(a.order || 0) - Number(b.order || 0);
         });
+      }
+
+      function renderFolderOptions(selected = "") {
+        bookmarkFolder.innerHTML = `<option value="">Bookmarks</option>${folders.map((folder) => `
+          <option value="${folder.id}" ${folder.id === selected ? "selected" : ""}>${folder.name}</option>
+        `).join("")}`;
+      }
+
+      function renderFolders() {
+        folderList.innerHTML = "";
+        const root = document.createElement("span");
+        root.className = "folder-chip";
+        root.textContent = "Bookmarks";
+        folderList.appendChild(root);
+
+        folders.forEach((folder) => {
+          const chip = document.createElement("span");
+          chip.className = "folder-chip";
+          chip.textContent = folder.name;
+          const edit = document.createElement("button");
+          edit.type = "button";
+          edit.textContent = "Edit";
+          edit.addEventListener("click", () => openFolderDialog(folder));
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.textContent = "Delete";
+          remove.addEventListener("click", async () => setBookmarksData(await window.nyra.removeBookmarkFolder(folder.id)));
+          chip.append(edit, remove);
+          folderList.appendChild(chip);
+        });
+      }
+
+      function renderBookmarks() {
+        renderFolders();
+        const query = bookmarkSearch.value.trim().toLowerCase();
+        const visibleBookmarks = sortedBookmarks(bookmarks.filter((bookmark) => {
+          const text = `${bookmark.title || ""} ${bookmark.url || ""} ${folderNameFor(bookmark.folderId)}`.toLowerCase();
+          return text.includes(query);
+        }));
 
         bookmarksList.innerHTML = "";
         bookmarksCount.textContent = bookmarks.length
@@ -132,16 +239,28 @@
         visibleBookmarks.forEach((bookmark) => {
           const item = document.createElement("div");
           item.className = "bookmark-item";
+          item.draggable = true;
+          item.dataset.bookmarkId = bookmark.id;
 
           const title = document.createElement("a");
           title.className = "bookmark-title";
           title.href = bookmark.url;
-          title.textContent = bookmark.title || bookmark.url;
+          const icon = document.createElement("img");
+          icon.src = bookmark.favicon || faviconFor(bookmark.url);
+          icon.alt = "";
+          icon.addEventListener("error", () => {
+            icon.replaceWith(document.createTextNode((bookmark.title || bookmark.url).charAt(0).toUpperCase()));
+          });
+          title.append(icon, document.createTextNode(bookmark.title || bookmark.url));
 
           const url = document.createElement("span");
           url.className = "bookmark-url";
           url.title = bookmark.url;
           url.textContent = siteLabel(bookmark.url);
+
+          const folder = document.createElement("span");
+          folder.className = "bookmark-folder";
+          folder.textContent = folderNameFor(bookmark.folderId);
 
           const actions = document.createElement("div");
           actions.className = "bookmark-row-actions";
@@ -159,20 +278,40 @@
           remove.type = "button";
           remove.textContent = "Delete";
           remove.addEventListener("click", async () => {
-            setBookmarks(await window.nyra.removeBookmark(bookmark.url));
+            bookmarks = await window.nyra.removeBookmark(bookmark.id);
+            renderBookmarks();
           });
 
           actions.append(open, edit, remove);
-          item.append(title, url, actions);
+          item.append(title, url, folder, actions);
+          item.addEventListener("dragstart", (event) => {
+            dragBookmarkId = bookmark.id;
+            event.dataTransfer.setData("text/plain", bookmark.id);
+          });
+          item.addEventListener("dragover", (event) => event.preventDefault());
+          item.addEventListener("drop", async (event) => {
+            event.preventDefault();
+            const sourceId = dragBookmarkId || event.dataTransfer.getData("text/plain");
+            const targetId = bookmark.id;
+            if (!sourceId || sourceId === targetId) return;
+            const ids = sortedBookmarks(bookmarks).map((entry) => entry.id);
+            const from = ids.indexOf(sourceId);
+            const to = ids.indexOf(targetId);
+            ids.splice(to, 0, ids.splice(from, 1)[0]);
+            bookmarks = await window.nyra.reorderBookmarks(ids);
+            bookmarkSort.value = "manual";
+            renderBookmarks();
+          });
           bookmarksList.appendChild(item);
         });
       }
 
       function openDialog(bookmark = null) {
-        editingUrl = bookmark ? bookmark.url : "";
+        editingBookmarkId = bookmark ? bookmark.id : "";
         dialogTitle.textContent = bookmark ? "Edit bookmark" : "Add bookmark";
         bookmarkName.value = bookmark ? bookmark.title || bookmark.url : "";
         bookmarkUrl.value = bookmark ? bookmark.url : "";
+        renderFolderOptions(bookmark ? bookmark.folderId : "");
         bookmarkError.textContent = "";
         bookmarkDialog.showModal();
         bookmarkName.focus();
@@ -182,10 +321,59 @@
         bookmarkDialog.close();
       }
 
+      function openFolderDialog(folder = null) {
+        editingFolderId = folder ? folder.id : "";
+        folderName.value = folder ? folder.name : "";
+        folderError.textContent = "";
+        folderDialog.showModal();
+        folderName.focus();
+      }
+
+      function currentPage() {
+        try {
+          return JSON.parse(localStorage.getItem("nyra-current-page") || "{}");
+        } catch {
+          return {};
+        }
+      }
+
       bookmarkSearch.addEventListener("input", renderBookmarks);
+      bookmarkSort.addEventListener("change", renderBookmarks);
       addBookmarkButton.addEventListener("click", () => openDialog());
+      addFolderButton.addEventListener("click", () => openFolderDialog());
+      addCurrentPageButton.addEventListener("click", async () => {
+        const page = currentPage();
+        const url = normalizedBookmarkUrl(page.url || "");
+        if (!url) {
+          openDialog();
+          return;
+        }
+        bookmarks = await window.nyra.addBookmark({
+          title: page.title || url,
+          url,
+          favicon: page.favicon || faviconFor(url),
+        });
+        renderBookmarks();
+      });
+      importBookmarksButton.addEventListener("click", async () => setBookmarksData(await window.nyra.importBookmarksHtml()));
+      exportBookmarksButton.addEventListener("click", () => window.nyra.exportBookmarksHtml());
       dialogCancel.addEventListener("click", closeDialog);
       dialogClose.addEventListener("click", closeDialog);
+      document.getElementById("folder-cancel").addEventListener("click", () => folderDialog.close());
+      document.getElementById("folder-close").addEventListener("click", () => folderDialog.close());
+      folderForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const name = folderName.value.trim();
+        if (!name) {
+          folderError.textContent = "Enter a folder name.";
+          return;
+        }
+        const data = editingFolderId
+          ? await window.nyra.updateBookmarkFolder(editingFolderId, { name })
+          : await window.nyra.createBookmarkFolder({ name });
+        setBookmarksData(data);
+        folderDialog.close();
+      });
       bookmarkForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const title = bookmarkName.value.trim();
@@ -196,25 +384,40 @@
           return;
         }
 
-        if (editingUrl && editingUrl !== url) {
-          await window.nyra.removeBookmark(editingUrl);
+        if (editingBookmarkId) {
+          bookmarks = await window.nyra.updateBookmark(editingBookmarkId, {
+            title,
+            url,
+            folderId: bookmarkFolder.value,
+            favicon: faviconFor(url),
+          });
+        } else {
+          bookmarks = await window.nyra.addBookmark({
+            title,
+            url,
+            folderId: bookmarkFolder.value,
+            favicon: faviconFor(url),
+          });
         }
-
-        setBookmarks(await window.nyra.addBookmark({ title, url }));
         closeDialog();
+        renderBookmarks();
       });
 
       if (window.nyra) {
         Promise.all([
           window.nyra.getSettings(),
-          window.nyra.getBookmarks(),
-        ]).then(([nextSettings, nextBookmarks]) => {
+          window.nyra.getBookmarksData(),
+        ]).then(([nextSettings, data]) => {
           applySettings(nextSettings);
-          setBookmarks(nextBookmarks);
+          setBookmarksData(data);
         });
 
         window.nyra.onSettingsChanged(applySettings);
-        window.nyra.onBookmarksChanged(setBookmarks);
+        window.nyra.onBookmarksChanged((nextBookmarks) => {
+          bookmarks = Array.isArray(nextBookmarks) ? nextBookmarks : [];
+          renderBookmarks();
+        });
+        window.nyra.onBookmarksDataChanged(setBookmarksData);
       }
     </script>
   </body>

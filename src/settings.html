@@ -4,19 +4,20 @@
     <meta charset="UTF-8" />
     <title>Settings - Nyra</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="assets/NyraLogo.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="settings.css" />
   </head>
   <body>
     <main class="settings-shell">
       <aside class="settings-nav" aria-label="Settings categories">
-        <button class="settings-nav-item active" type="button" data-section="general"><span>⌂</span>General</button>
-        <button class="settings-nav-item" type="button" data-section="appearance"><span>◌</span>Appearance</button>
-        <button class="settings-nav-item" type="button" data-section="privacy"><span>◇</span>Privacy & Security</button>
-        <button class="settings-nav-item" type="button" data-section="search"><span>⌕</span>Search</button>
-        <button class="settings-nav-item" type="button" data-section="tabs"><span>▣</span>Tabs</button>
-        <button class="settings-nav-item" type="button" data-section="downloads"><span>↓</span>Downloads</button>
-        <button class="settings-nav-item" type="button" data-section="shortcuts"><span>⌘</span>Shortcuts</button>
-        <button class="settings-nav-item" type="button" data-section="about"><span>ⓘ</span>About Nyra</button>
+        <button class="settings-nav-item active" type="button" data-section="general"><span data-icon="home"></span>General</button>
+        <button class="settings-nav-item" type="button" data-section="appearance"><span data-icon="spark"></span>Appearance</button>
+        <button class="settings-nav-item" type="button" data-section="privacy"><span data-icon="shield"></span>Privacy & Security</button>
+        <button class="settings-nav-item" type="button" data-section="search"><span data-icon="search"></span>Search</button>
+        <button class="settings-nav-item" type="button" data-section="tabs"><span data-icon="layout"></span>Tabs</button>
+        <button class="settings-nav-item" type="button" data-section="downloads"><span data-icon="download"></span>Downloads</button>
+        <button class="settings-nav-item" type="button" data-section="shortcuts"><span data-icon="code"></span>Shortcuts</button>
+        <button class="settings-nav-item" type="button" data-section="about"><span data-icon="info"></span>About Nyra</button>
       </aside>
 
       <section class="settings-card">
@@ -28,7 +29,9 @@
     </main>
 
     <script src="settings-utils.js"></script>
+    <script src="icons.js"></script>
     <script>
+      window.NyraIcons?.mount(document);
       const navItems = Array.from(document.querySelectorAll(".settings-nav-item"));
       const sectionTitle = document.getElementById("section-title");
       const sectionDescription = document.getElementById("section-description");
@@ -47,9 +50,16 @@
       };
 
       let settings = window.NyraSettings.DEFAULT_SETTINGS;
-      let activeSection = "general";
+      let activeSection = localStorage.getItem("nyra-settings-section") || "general";
       let appInfo = null;
       let downloadsInfo = null;
+      let permissions = [];
+      let siteData = [];
+      let updateInfo = null;
+      let savedLoginsInfo = { available: true, logins: [] };
+      let passwordSearch = "";
+      const revealedPasswords = new Map();
+      let pendingRevealId = "";
 
       function setStatus(message) {
         status.textContent = message;
@@ -138,6 +148,7 @@
               </div>
             `),
             row("Restore previous session", "Reopen saved tabs the next time Nyra starts.", switchControl("restore-session", settings.restoreSession), true),
+            row("Hardware acceleration", "Use GPU acceleration when available. Restart Nyra to apply changes.", switchControl("hardware-acceleration", settings.hardwareAcceleration), true),
           ])}
           <button id="reset-state" type="button">Reset settings and saved state</button>
         `;
@@ -168,13 +179,130 @@
           ${panel([
             row("HTTPS-first navigation", "Bare domains open with https:// when enabled.", switchControl("https-first", settings.httpsFirst), true),
             row("Clear browsing data", "Clears saved browsing history.", `<button id="clear-history" class="inline-button" type="button">Clear history</button>`),
+            row("Site permissions", "Saved allow/deny decisions for camera, microphone, location and notifications.", `<button id="clear-permissions" class="inline-button" type="button">Reset permissions</button>`),
+            row("Site data", "Cookies and local storage saved by visited sites.", `<button id="manage-site-data" class="inline-button" type="button">Manage site data</button>`),
           ])}
+          <div class="saved-passwords-panel" aria-label="Saved passwords">
+            ${renderSavedPasswords()}
+          </div>
+          <div class="site-data-panel" aria-label="Site data">
+            ${renderSiteData()}
+          </div>
+          <div class="permissions-panel" aria-label="Site permissions">
+            ${renderPermissions()}
+          </div>
           <div class="status-panel" aria-label="Security status">
             ${statusItem("External links", "Remote pages can only hand off mailto: and tel: protocols externally.", "Restricted")}
-            ${statusItem("Permissions", "Site permission prompts are denied by default until a permission manager exists.", "Denied by default")}
+            ${statusItem("Permissions", "Unknown site permission requests show a Nyra prompt and saved decisions apply per site.", "Prompt per site")}
             ${statusItem("Remote page isolation", "Remote pages run in isolated webviews; Nyra preload is only attached to trusted local pages.", "Enabled")}
           </div>
         `;
+      }
+
+      function renderPermissions() {
+        const domainFilter = localStorage.getItem("nyra-settings-domain") || "";
+        const visiblePermissions = domainFilter
+          ? permissions.filter((permission) => permission.domain === domainFilter)
+          : permissions;
+
+        if (!visiblePermissions.length) {
+          return `<p class="empty-status">No saved site permissions.</p>`;
+        }
+
+        return visiblePermissions.map((permission) => `
+          <div class="permission-row">
+            <span>
+              <strong>${escapeHtml(permission.domain)}</strong>
+              <small>${escapeHtml(permission.permission)}</small>
+            </span>
+            <select data-permission-domain="${escapeHtml(permission.domain)}" data-permission-type="${escapeHtml(permission.permission)}">
+              <option value="allow" ${permission.value === "allow" ? "selected" : ""}>Allow</option>
+              <option value="deny" ${permission.value === "deny" ? "selected" : ""}>Deny</option>
+            </select>
+            <button class="inline-button remove-permission" type="button" data-permission-domain="${escapeHtml(permission.domain)}" data-permission-type="${escapeHtml(permission.permission)}">Remove</button>
+          </div>
+        `).join("");
+      }
+
+      function formatDate(value) {
+        if (!value) return "Unknown";
+        try {
+          return new Date(value).toLocaleDateString();
+        } catch {
+          return "Unknown";
+        }
+      }
+
+      function filteredSavedLogins() {
+        const query = passwordSearch.trim().toLowerCase();
+        const logins = Array.isArray(savedLoginsInfo.logins) ? savedLoginsInfo.logins : [];
+        if (!query) return logins;
+
+        return logins.filter((login) => (
+          String(login.origin || "").toLowerCase().includes(query) ||
+          String(login.domain || "").toLowerCase().includes(query) ||
+          String(login.username || "").toLowerCase().includes(query)
+        ));
+      }
+
+      function renderSavedPasswords() {
+        if (!savedLoginsInfo.available) {
+          return `
+            <div class="saved-passwords-header">
+              <strong>Saved passwords</strong>
+              ${badge("Encryption unavailable")}
+            </div>
+            <p class="empty-status">Nyra cannot access encrypted passwords because OS encryption is unavailable.</p>
+          `;
+        }
+
+        const logins = filteredSavedLogins();
+        return `
+          <div class="saved-passwords-header">
+            <strong>Saved passwords</strong>
+            <input id="password-search" type="search" value="${escapeHtml(passwordSearch)}" placeholder="Search passwords" />
+            <button id="clear-saved-logins" class="inline-button" type="button" ${savedLoginsInfo.logins.length ? "" : "disabled"}>Clear all</button>
+          </div>
+          ${savedLoginsInfo.recovery ? `<p class="empty-status">Password store was recovered from a corrupted file.</p>` : ""}
+          ${logins.length ? logins.map((login) => {
+            const revealed = revealedPasswords.get(login.id);
+            return `
+              <div class="saved-password-row">
+                <span>
+                  <strong>${escapeHtml(login.domain || login.origin)}</strong>
+                  <small>${escapeHtml(login.origin)}</small>
+                </span>
+                <span>
+                  <strong>${escapeHtml(login.username)}</strong>
+                  <small>Created ${formatDate(login.createdAt)} · Updated ${formatDate(login.updatedAt)}</small>
+                  ${revealed ? `<code>${escapeHtml(revealed)}</code>` : ""}
+                </span>
+                <div class="saved-password-actions">
+                  <button class="inline-button reveal-login" type="button" data-login-id="${escapeHtml(login.id)}">${revealed ? "Hide" : pendingRevealId === login.id ? "Confirm reveal" : "Reveal"}</button>
+                  <button class="inline-button copy-username" type="button" data-login-id="${escapeHtml(login.id)}">Copy username</button>
+                  <button class="inline-button copy-password" type="button" data-login-id="${escapeHtml(login.id)}">Copy password</button>
+                  <button class="inline-button delete-login" type="button" data-login-id="${escapeHtml(login.id)}">Delete</button>
+                </div>
+              </div>
+            `;
+          }).join("") : `<p class="empty-status">No saved passwords.</p>`}
+        `;
+      }
+
+      function renderSiteData() {
+        if (!siteData.length) {
+          return `<p class="empty-status">No saved site data.</p>`;
+        }
+
+        return siteData.map((item) => `
+          <div class="site-data-row">
+            <span>
+              <strong>${escapeHtml(item.domain)}</strong>
+              <small>${Number(item.cookies || 0)} cookie${Number(item.cookies || 0) === 1 ? "" : "s"}</small>
+            </span>
+            <button class="inline-button clear-site-data-domain" type="button" data-site-domain="${escapeHtml(item.domain)}">Clear</button>
+          </div>
+        `).join("");
       }
 
       function renderSearch() {
@@ -216,6 +344,11 @@
           ["Ctrl+R", "Reload active tab"],
           ["Alt+Left", "Go back"],
           ["Alt+Right", "Go forward"],
+          ["Ctrl+Shift+T", "Reopen closed tab"],
+          ["Ctrl+K", "Open command palette"],
+          ["Ctrl++", "Zoom in"],
+          ["Ctrl+-", "Zoom out"],
+          ["Ctrl+0", "Reset zoom"],
           ["Ctrl+Shift+I", "Toggle active webview DevTools"],
           ["F12", "Toggle active webview DevTools"],
         ];
@@ -238,6 +371,16 @@
           row("Chromium", "Embedded browser engine.", badge(escapeHtml(info.chromium || "Unavailable"))),
           row("Node", "Main process runtime.", badge(escapeHtml(info.node || "Unavailable"))),
           row("License", "Project license.", badge(escapeHtml(info.license || "Not specified"))),
+          row("Updates", "Check GitHub releases for a newer Nyra build.", `<button id="check-updates" class="inline-button" type="button">Check for updates</button>`),
+          updateInfo ? row(
+            "Latest release",
+            updateInfo.ok
+              ? updateInfo.isNewer
+                ? `Version ${escapeHtml(updateInfo.latestVersion)} is available.`
+                : `Nyra is up to date at ${escapeHtml(updateInfo.currentVersion)}.`
+              : `Update check failed: ${escapeHtml(updateInfo.error || "Unknown error")}`,
+            updateInfo.releaseUrl ? `<button id="open-latest-release" class="inline-button" type="button">Open release</button>` : badge("Unavailable")
+          ) : "",
           row("Repository", repository ? escapeHtml(repository) : "Repository not configured.", repository ? `<button id="open-repository" class="inline-button" type="button">Open repository</button>` : badge("Unavailable")),
         ]);
       }
@@ -282,6 +425,7 @@
         bindChange("compact-tabs", "checked", (value) => saveSettings({ compactTabs: value }));
         bindChange("tab-close-mode", "value", (value) => saveSettings({ tabCloseButtonMode: value }));
         bindChange("ask-download-location", "checked", (value) => saveSettings({ askDownloadLocation: value }));
+        bindChange("hardware-acceleration", "checked", (value) => saveSettings({ hardwareAcceleration: value }));
 
         document.getElementById("zoom-out")?.addEventListener("click", () => {
           saveSettings({ defaultZoom: Math.max(0.75, settings.defaultZoom - 0.05) });
@@ -299,6 +443,118 @@
         document.getElementById("clear-history")?.addEventListener("click", async () => {
           await window.nyra.clearHistory();
           setStatus("Browsing history cleared.");
+        });
+        document.getElementById("clear-permissions")?.addEventListener("click", async () => {
+          permissions = await window.nyra.clearPermissions();
+          renderSection(activeSection);
+          setStatus("Site permissions reset.");
+        });
+        document.getElementById("manage-site-data")?.addEventListener("click", () => {
+          window.location.href = "./site-data.html";
+        });
+        document.getElementById("open-latest-release")?.addEventListener("click", async () => {
+          const result = updateInfo?.releaseUrl
+            ? await window.nyra.openTrustedExternalUrl(updateInfo.releaseUrl)
+            : { ok: false };
+          setStatus(result.ok ? "Release page opened." : "Release link blocked.");
+        });
+        document.querySelectorAll(".clear-site-data-domain").forEach((button) => {
+          button.addEventListener("click", async () => {
+            siteData = await window.nyra.clearSiteData(button.dataset.siteDomain);
+            renderSection(activeSection);
+            setStatus("Site data cleared.");
+          });
+        });
+        document.getElementById("password-search")?.addEventListener("input", (event) => {
+          passwordSearch = event.target.value;
+          renderSection(activeSection);
+        });
+        document.getElementById("clear-saved-logins")?.addEventListener("click", async () => {
+          savedLoginsInfo = await window.nyra.clearSavedLogins();
+          revealedPasswords.clear();
+          pendingRevealId = "";
+          renderSection(activeSection);
+          setStatus("Saved passwords cleared.");
+        });
+        document.querySelectorAll(".copy-username").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const login = savedLoginsInfo.logins.find((item) => item.id === button.dataset.loginId);
+            if (!login) return;
+            await navigator.clipboard.writeText(login.username);
+            setStatus("Username copied.");
+          });
+        });
+        document.querySelectorAll(".copy-password").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const result = await window.nyra.getLoginSecret(button.dataset.loginId);
+            if (!result.ok || !result.credential) {
+              setStatus("Password could not be decrypted.");
+              return;
+            }
+            await navigator.clipboard.writeText(result.credential.password);
+            setStatus("Password copied.");
+          });
+        });
+        document.querySelectorAll(".reveal-login").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const id = button.dataset.loginId;
+            if (revealedPasswords.has(id)) {
+              revealedPasswords.delete(id);
+              pendingRevealId = "";
+              renderSection(activeSection);
+              return;
+            }
+            if (pendingRevealId !== id) {
+              pendingRevealId = id;
+              renderSection(activeSection);
+              setStatus("Click Confirm reveal to show this password temporarily.");
+              return;
+            }
+
+            const result = await window.nyra.getLoginSecret(id);
+            if (!result.ok || !result.credential) {
+              pendingRevealId = "";
+              setStatus("Password could not be decrypted.");
+              renderSection(activeSection);
+              return;
+            }
+            revealedPasswords.set(id, result.credential.password);
+            pendingRevealId = "";
+            renderSection(activeSection);
+            setStatus("Password revealed temporarily.");
+            window.setTimeout(() => {
+              revealedPasswords.delete(id);
+              if (activeSection === "privacy") renderSection(activeSection);
+            }, 30000);
+          });
+        });
+        document.querySelectorAll(".delete-login").forEach((button) => {
+          button.addEventListener("click", async () => {
+            savedLoginsInfo = await window.nyra.deleteSavedLogin(button.dataset.loginId);
+            revealedPasswords.delete(button.dataset.loginId);
+            renderSection(activeSection);
+            setStatus("Saved login deleted.");
+          });
+        });
+        document.querySelectorAll("[data-permission-domain][data-permission-type]").forEach((control) => {
+          if (control.classList.contains("remove-permission")) {
+            control.addEventListener("click", async () => {
+              permissions = await window.nyra.removePermission(control.dataset.permissionDomain, control.dataset.permissionType);
+              renderSection(activeSection);
+              setStatus("Site permission removed.");
+            });
+            return;
+          }
+
+          control.addEventListener("change", async () => {
+            permissions = await window.nyra.setPermission({
+              domain: control.dataset.permissionDomain,
+              permission: control.dataset.permissionType,
+              value: control.value,
+            });
+            renderSection(activeSection);
+            setStatus("Site permission updated.");
+          });
         });
         document.getElementById("open-default-apps")?.addEventListener("click", async () => {
           const result = await window.nyra.openDefaultAppsSettings();
@@ -318,6 +574,15 @@
           const repository = appInfo?.repository || appInfo?.homepage;
           const result = repository ? await window.nyra.openTrustedExternalUrl(repository) : { ok: false };
           setStatus(result.ok ? "Repository opened." : "Repository link blocked.");
+        });
+        document.getElementById("check-updates")?.addEventListener("click", async () => {
+          updateInfo = await window.nyra.checkForUpdates();
+          renderSection(activeSection);
+          setStatus(updateInfo.ok
+            ? updateInfo.isNewer
+              ? `Nyra ${updateInfo.latestVersion} is available.`
+              : "Nyra is up to date."
+            : `Update check failed: ${updateInfo.error || "Unknown error"}`);
         });
       }
 
@@ -358,14 +623,20 @@
           return;
         }
 
-        const [loadedSettings, loadedAppInfo, loadedDownloadsInfo] = await Promise.all([
+        const [loadedSettings, loadedAppInfo, loadedDownloadsInfo, loadedPermissions, loadedSiteData, loadedSavedLogins] = await Promise.all([
           window.nyra.getSettings(),
           window.nyra.getAppInfo(),
           window.nyra.getDownloadsInfo(),
+          window.nyra.getPermissions(),
+          window.nyra.getSiteData(),
+          window.nyra.getSavedLogins(),
         ]);
 
         appInfo = loadedAppInfo;
         downloadsInfo = loadedDownloadsInfo;
+        permissions = loadedPermissions;
+        siteData = Array.isArray(loadedSiteData) ? loadedSiteData : [];
+        savedLoginsInfo = loadedSavedLogins || { available: false, logins: [] };
         mergeSettings(loadedSettings);
         renderSection(activeSection);
         setStatus("Settings loaded.");
@@ -374,9 +645,14 @@
           mergeSettings(nextSettings);
           renderSection(activeSection);
         });
+        window.nyra.onPermissionsChanged((nextPermissions) => {
+          permissions = Array.isArray(nextPermissions) ? nextPermissions : [];
+          if (activeSection === "privacy") renderSection(activeSection);
+        });
 
         navItems.forEach((item) => {
           item.addEventListener("click", () => {
+            localStorage.setItem("nyra-settings-section", item.dataset.section);
             renderSection(item.dataset.section);
             setStatus("");
           });
