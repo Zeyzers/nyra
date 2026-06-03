@@ -3,6 +3,7 @@ const fs = require('fs');
 const https = require('https');
 const path = require('path');
 const { fileURLToPath } = require('url');
+const { autoUpdater } = require('electron-updater');
 const packageInfo = require('./package.json');
 const { createPasswordStore } = require('./src/password-store');
 const { createStorage, domainForUrl } = require('./src/storage');
@@ -55,6 +56,22 @@ let pendingPermissionPrompts = new Map();
 let startupLogPath = path.join(process.env.TEMP || process.env.TMP || __dirname, 'nyra-startup.log');
 const devtoolsDocks = new Map();
 const loadedExtensions = new Map();
+let autoUpdaterInitialized = false;
+let updateState = {
+  status: 'idle',
+  currentVersion: packageInfo.version,
+  latestVersion: '',
+  releaseUrl: 'https://github.com/zeyzers/nyra/releases',
+  message: '',
+  error: '',
+  percent: 0,
+  transferred: 0,
+  total: 0,
+  downloaded: false,
+  canInstall: false,
+  packaged: false,
+  manualOnly: true
+};
 const LAUNCH_COMMANDS = new Map([
   ['--nyra-new-tab', 'new-tab'],
   ['--nyra-private-tab', 'private-tab'],
@@ -793,28 +810,194 @@ function fetchJson(url) {
 async function checkForUpdates() {
   const currentVersion = app.getVersion();
 
+  if (app.isPackaged && !SAFE_MODE) {
+    setupAutoUpdater();
+    updateState = {
+      ...updateState,
+      status: 'checking',
+      currentVersion,
+      error: '',
+      message: 'Checking for updates...',
+      packaged: true,
+      manualOnly: false
+    };
+    broadcastUpdateState();
+
+    try {
+      await autoUpdater.checkForUpdates();
+      return updateState;
+    } catch (error) {
+      updateState = {
+        ...updateState,
+        status: 'error',
+        error: error && error.message ? error.message : String(error),
+        message: 'Update check failed.',
+        packaged: true,
+        manualOnly: false
+      };
+      broadcastUpdateState();
+      return updateState;
+    }
+  }
+
   try {
     const release = await fetchJson('https://api.github.com/repos/zeyzers/nyra/releases/latest');
     const latestVersion = String(release.tag_name || release.name || '').replace(/^v/i, '');
     const releaseUrl = release.html_url || 'https://github.com/zeyzers/nyra/releases';
-    return {
-      ok: true,
+    updateState = {
+      ...updateState,
+      status: compareVersions(latestVersion, currentVersion) > 0 ? 'available' : 'not-available',
       currentVersion,
       latestVersion,
       releaseUrl,
+      message: app.isPackaged
+        ? 'A release is available.'
+        : 'Development builds can check releases but cannot install updates automatically.',
       publishedAt: release.published_at || '',
-      isNewer: compareVersions(latestVersion, currentVersion) > 0
+      isNewer: compareVersions(latestVersion, currentVersion) > 0,
+      ok: true,
+      packaged: app.isPackaged,
+      manualOnly: !app.isPackaged || SAFE_MODE,
+      canInstall: false,
+      downloaded: false,
+      error: ''
     };
+    return updateState;
   } catch (error) {
-    return {
-      ok: false,
+    updateState = {
+      ...updateState,
+      status: 'error',
       currentVersion,
       latestVersion: '',
       releaseUrl: 'https://github.com/zeyzers/nyra/releases',
       isNewer: false,
+      ok: false,
+      packaged: app.isPackaged,
+      manualOnly: !app.isPackaged || SAFE_MODE,
+      canInstall: false,
+      downloaded: false,
+      message: 'Update check failed.',
       error: error && error.message ? error.message : String(error)
     };
+    return updateState;
   }
+}
+
+function publicUpdateState() {
+  return {
+    ...updateState,
+    currentVersion: app.isReady() ? app.getVersion() : packageInfo.version,
+    packaged: app.isPackaged,
+    manualOnly: !app.isPackaged || SAFE_MODE
+  };
+}
+
+function broadcastUpdateState() {
+  broadcast('nyra:update-state', publicUpdateState());
+}
+
+function setupAutoUpdater() {
+  if (autoUpdaterInitialized) return;
+  autoUpdaterInitialized = true;
+
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    updateState = {
+      ...updateState,
+      status: 'checking',
+      message: 'Checking for updates...',
+      error: '',
+      packaged: true,
+      manualOnly: false
+    };
+    broadcastUpdateState();
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    updateState = {
+      ...updateState,
+      status: 'available',
+      latestVersion: info && info.version ? info.version : updateState.latestVersion,
+      releaseUrl: info && info.releaseNotes ? updateState.releaseUrl : updateState.releaseUrl,
+      message: 'Update available. Starting download...',
+      isNewer: true,
+      error: '',
+      packaged: true,
+      manualOnly: false
+    };
+    broadcastUpdateState();
+    autoUpdater.downloadUpdate().catch((error) => {
+      updateState = {
+        ...updateState,
+        status: 'error',
+        message: 'Update download failed.',
+        error: error && error.message ? error.message : String(error)
+      };
+      broadcastUpdateState();
+    });
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    updateState = {
+      ...updateState,
+      status: 'not-available',
+      latestVersion: info && info.version ? info.version : app.getVersion(),
+      message: 'Nyra is up to date.',
+      isNewer: false,
+      error: '',
+      packaged: true,
+      manualOnly: false
+    };
+    broadcastUpdateState();
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    updateState = {
+      ...updateState,
+      status: 'downloading',
+      message: 'Downloading update...',
+      percent: Number(progress.percent || 0),
+      transferred: Number(progress.transferred || 0),
+      total: Number(progress.total || 0),
+      error: ''
+    };
+    broadcastUpdateState();
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    updateState = {
+      ...updateState,
+      status: 'downloaded',
+      latestVersion: info && info.version ? info.version : updateState.latestVersion,
+      message: 'Update downloaded. Restart Nyra to install.',
+      downloaded: true,
+      canInstall: true,
+      percent: 100,
+      error: ''
+    };
+    broadcastUpdateState();
+  });
+
+  autoUpdater.on('error', (error) => {
+    updateState = {
+      ...updateState,
+      status: 'error',
+      message: 'Update failed.',
+      error: error && error.message ? error.message : String(error)
+    };
+    broadcastUpdateState();
+  });
+}
+
+function installDownloadedUpdate() {
+  if (!app.isPackaged || !updateState.canInstall) {
+    return { ok: false, error: 'No downloaded update is ready to install.' };
+  }
+
+  setImmediate(() => autoUpdater.quitAndInstall(false, true));
+  return { ok: true };
 }
 
 function broadcast(channel, payload) {
@@ -1376,6 +1559,8 @@ function installIpcHandlers() {
     return { ok: true };
   });
   ipcMain.handle('nyra:check-for-updates', () => checkForUpdates());
+  ipcMain.handle('nyra:get-update-state', () => publicUpdateState());
+  ipcMain.handle('nyra:install-downloaded-update', () => installDownloadedUpdate());
   ipcMain.handle('nyra:open-default-apps-settings', async () => {
     if (process.platform !== 'win32') return { ok: false };
 
@@ -1669,6 +1854,7 @@ function startApp() {
   installIpcHandlers();
   installDownloadHandlers();
   installWindowsUserTasks();
+  if (app.isPackaged && !SAFE_MODE) setupAutoUpdater();
   createWindow();
   setTimeout(() => {
     loadConfiguredExtensions().catch((error) => startupLog('configured extensions load failed', error));

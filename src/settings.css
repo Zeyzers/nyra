@@ -241,6 +241,20 @@ select option {
   justify-self: end;
 }
 
+.button-group {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.inline-button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
 select:focus,
 .inline-button:focus,
 #reset-state:focus {

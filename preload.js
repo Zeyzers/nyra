@@ -167,7 +167,16 @@ if (isTrustedLocalPage) {
   resolvePermissionPrompt: (id, value) => ipcRenderer.invoke('nyra:resolve-permission-prompt', id, value),
   openTrustedExternalUrl: (url) => ipcRenderer.invoke('nyra:open-trusted-external-url', url),
   checkForUpdates: () => ipcRenderer.invoke('nyra:check-for-updates'),
+  getUpdateState: () => ipcRenderer.invoke('nyra:get-update-state'),
+  installDownloadedUpdate: () => ipcRenderer.invoke('nyra:install-downloaded-update'),
   openDefaultAppsSettings: () => ipcRenderer.invoke('nyra:open-default-apps-settings'),
+  onUpdateState: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+
+    const listener = (_event, state) => callback(state);
+    ipcRenderer.on('nyra:update-state', listener);
+    return () => ipcRenderer.removeListener('nyra:update-state', listener);
+  },
   onSettingsChanged: (callback) => {
     if (typeof callback !== 'function') return () => {};
 

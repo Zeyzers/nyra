@@ -364,6 +364,30 @@
       function renderAbout() {
         const info = appInfo || {};
         const repository = info.repository || info.homepage || "";
+        const updater = updateInfo || {};
+        const updateDescription = updater.message
+          || (updater.status === "downloaded"
+            ? "Update downloaded. Restart Nyra to install."
+            : updater.status === "downloading"
+              ? `Downloading update${Number.isFinite(updater.percent) ? ` (${Math.round(updater.percent)}%)` : ""}.`
+              : updater.status === "available"
+                ? updater.manualOnly
+                  ? `Version ${escapeHtml(updater.latestVersion || "newer")} is available.`
+                  : "Update available."
+                : updater.status === "not-available"
+                  ? `Nyra is up to date at ${escapeHtml(updater.currentVersion || info.version || "this version")}.`
+                  : updater.status === "error"
+                    ? `Update check failed: ${escapeHtml(updater.error || "Unknown error")}`
+                    : updater.manualOnly
+                      ? "Development builds can check releases but cannot install updates."
+                      : "Check GitHub releases for a newer Nyra build.");
+        const updateControls = [
+          `<button id="check-updates" class="inline-button" type="button"${updater.status === "checking" || updater.status === "downloading" ? " disabled" : ""}>${
+            updater.status === "downloading" ? "Downloading..." : "Check for updates"
+          }</button>`,
+          updater.canInstall ? `<button id="install-update" class="inline-button primary" type="button">Install and restart</button>` : "",
+          updater.releaseUrl ? `<button id="open-latest-release" class="inline-button" type="button">Open release</button>` : "",
+        ].filter(Boolean).join("");
         return panel([
           row("Name", "Application name.", badge(escapeHtml(info.name || "Nyra"))),
           row("Version", "Package version.", badge(escapeHtml(info.version || "Unavailable"))),
@@ -371,16 +395,7 @@
           row("Chromium", "Embedded browser engine.", badge(escapeHtml(info.chromium || "Unavailable"))),
           row("Node", "Main process runtime.", badge(escapeHtml(info.node || "Unavailable"))),
           row("License", "Project license.", badge(escapeHtml(info.license || "Not specified"))),
-          row("Updates", "Check GitHub releases for a newer Nyra build.", `<button id="check-updates" class="inline-button" type="button">Check for updates</button>`),
-          updateInfo ? row(
-            "Latest release",
-            updateInfo.ok
-              ? updateInfo.isNewer
-                ? `Version ${escapeHtml(updateInfo.latestVersion)} is available.`
-                : `Nyra is up to date at ${escapeHtml(updateInfo.currentVersion)}.`
-              : `Update check failed: ${escapeHtml(updateInfo.error || "Unknown error")}`,
-            updateInfo.releaseUrl ? `<button id="open-latest-release" class="inline-button" type="button">Open release</button>` : badge("Unavailable")
-          ) : "",
+          row("Updates", updateDescription, `<span class="button-group">${updateControls}</span>`),
           row("Repository", repository ? escapeHtml(repository) : "Repository not configured.", repository ? `<button id="open-repository" class="inline-button" type="button">Open repository</button>` : badge("Unavailable")),
         ]);
       }
@@ -578,11 +593,15 @@
         document.getElementById("check-updates")?.addEventListener("click", async () => {
           updateInfo = await window.nyra.checkForUpdates();
           renderSection(activeSection);
-          setStatus(updateInfo.ok
+          setStatus(updateInfo.message || (updateInfo.ok
             ? updateInfo.isNewer
               ? `Nyra ${updateInfo.latestVersion} is available.`
               : "Nyra is up to date."
-            : `Update check failed: ${updateInfo.error || "Unknown error"}`);
+            : `Update check failed: ${updateInfo.error || "Unknown error"}`));
+        });
+        document.getElementById("install-update")?.addEventListener("click", async () => {
+          const result = await window.nyra.installDownloadedUpdate();
+          setStatus(result.ok ? "Restarting Nyra to install the update..." : `Install failed: ${result.error || "No update ready."}`);
         });
       }
 
@@ -623,13 +642,14 @@
           return;
         }
 
-        const [loadedSettings, loadedAppInfo, loadedDownloadsInfo, loadedPermissions, loadedSiteData, loadedSavedLogins] = await Promise.all([
+        const [loadedSettings, loadedAppInfo, loadedDownloadsInfo, loadedPermissions, loadedSiteData, loadedSavedLogins, loadedUpdateInfo] = await Promise.all([
           window.nyra.getSettings(),
           window.nyra.getAppInfo(),
           window.nyra.getDownloadsInfo(),
           window.nyra.getPermissions(),
           window.nyra.getSiteData(),
           window.nyra.getSavedLogins(),
+          window.nyra.getUpdateState(),
         ]);
 
         appInfo = loadedAppInfo;
@@ -637,6 +657,7 @@
         permissions = loadedPermissions;
         siteData = Array.isArray(loadedSiteData) ? loadedSiteData : [];
         savedLoginsInfo = loadedSavedLogins || { available: false, logins: [] };
+        updateInfo = loadedUpdateInfo || null;
         mergeSettings(loadedSettings);
         renderSection(activeSection);
         setStatus("Settings loaded.");
@@ -648,6 +669,11 @@
         window.nyra.onPermissionsChanged((nextPermissions) => {
           permissions = Array.isArray(nextPermissions) ? nextPermissions : [];
           if (activeSection === "privacy") renderSection(activeSection);
+        });
+        window.nyra.onUpdateState((nextUpdateInfo) => {
+          updateInfo = nextUpdateInfo || null;
+          if (activeSection === "about") renderSection(activeSection);
+          if (updateInfo?.message) setStatus(updateInfo.message);
         });
 
         navItems.forEach((item) => {

@@ -38,6 +38,13 @@
     "directories": {
       "output": "dist"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Zeyzers",
+        "repo": "nyra"
+      }
+    ],
     "files": [
       "main.js",
       "preload.js",
@@ -87,5 +94,8 @@
   "devDependencies": {
     "electron": "^41.3.0",
     "electron-builder": "^26.8.1"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3"
   }
 }
