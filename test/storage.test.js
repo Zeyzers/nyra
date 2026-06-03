@@ -163,7 +163,22 @@ function tempDir() {
     completedAt: "2026-04-27T08:00:01.000Z",
   });
   assert.equal(storage.getDownloads()[0].id, "download-1");
+  assert.equal(storage.getDownloads()[0].url, "https://example.com/file.txt");
   storage.removeDownload("download-1");
+  assert.deepEqual(storage.getDownloads(), []);
+
+  storage.upsertDownload({
+    id: "download-2",
+    filename: "file.pdf",
+    url: "https://example.com/file.pdf",
+    state: "failed",
+    receivedBytes: 4,
+    totalBytes: 10,
+    startedAt: "2026-04-27T08:00:00.000Z",
+  });
+  assert.equal(storage.getDownloads()[0].state, "failed");
+  assert.equal(storage.getDownloads()[0].percent, 40);
+  storage.clearDownloads();
   assert.deepEqual(storage.getDownloads(), []);
 
   storage.upsertExtension({

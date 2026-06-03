@@ -23,26 +23,61 @@
           <dd id="error-description"></dd>
         </dl>
 
-        <button id="retry-http" type="button" hidden>Retry with HTTP</button>
+        <div class="error-actions">
+          <button id="retry-page" type="button">Retry</button>
+          <button id="retry-http" type="button" hidden>Retry with HTTP</button>
+          <button id="download-pdf" type="button" hidden>Download PDF</button>
+          <button id="open-external" type="button" hidden>Open externally</button>
+        </div>
       </section>
     </main>
 
+    <script src="settings-utils.js"></script>
     <script src="error-utils.js"></script>
+    <script src="url-utils.js"></script>
     <script>
       const params = new URLSearchParams(window.location.search);
       const failedUrl = params.get("url") || "";
       const errorCode = params.get("code") || "unknown";
       const errorDescription = params.get("description") || "No description available.";
+      const errorType = params.get("type") || "";
+      const retryPageButton = document.getElementById("retry-page");
       const retryButton = document.getElementById("retry-http");
+      const downloadPdfButton = document.getElementById("download-pdf");
+      const openExternalButton = document.getElementById("open-external");
 
       document.getElementById("failed-url").textContent = failedUrl;
       document.getElementById("error-code").textContent = errorCode;
       document.getElementById("error-description").textContent = errorDescription;
 
+      if (window.nyra && window.NyraSettings) {
+        window.nyra.getSettings().then((settings) => window.NyraSettings.applyAppearance(settings)).catch(() => {});
+        window.nyra.onSettingsChanged((settings) => window.NyraSettings.applyAppearance(settings));
+      }
+
+      retryPageButton.addEventListener("click", () => {
+        if (failedUrl) window.location.href = failedUrl;
+      });
+
       if (window.NyraError.canRetryWithHttp(failedUrl)) {
         retryButton.hidden = false;
         retryButton.addEventListener("click", () => {
           window.location.href = window.NyraError.getHttpRetryUrl(failedUrl);
+        });
+      }
+
+      if (errorType === "pdf" || window.NyraUrl?.isPdfUrl?.(failedUrl)) {
+        document.querySelector("h1").textContent = "PDF did not open";
+        document.querySelector(".intro").textContent = "Nyra tried to open this PDF in the browser. You can retry, download it, or hand it off to the system PDF viewer.";
+
+        downloadPdfButton.hidden = false;
+        downloadPdfButton.addEventListener("click", async () => {
+          if (window.nyra?.downloadUrl) await window.nyra.downloadUrl(failedUrl);
+        });
+
+        openExternalButton.hidden = false;
+        openExternalButton.addEventListener("click", async () => {
+          if (window.nyra?.openExternalWebUrl) await window.nyra.openExternalWebUrl(failedUrl);
         });
       }
     </script>

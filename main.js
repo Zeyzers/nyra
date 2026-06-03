@@ -1331,6 +1331,30 @@ function installIpcHandlers() {
     defaultFolder: app.getPath('downloads')
   }));
   ipcMain.handle('nyra:get-downloads', () => (SAFE_MODE ? [] : getDownloadsWithFileState()));
+  ipcMain.handle('nyra:download-url', (event, url) => {
+    if (!isAllowedLocalFile(event.sender.getURL())) return { ok: false, error: 'Downloads can only be started by Nyra pages.' };
+    if (!isSafeWebUrl(url)) return { ok: false, error: 'Only http and https downloads are allowed.' };
+
+    event.sender.downloadURL(url);
+    return { ok: true };
+  });
+  ipcMain.handle('nyra:retry-download', (event, id) => {
+    if (!isAllowedLocalFile(event.sender.getURL())) return { ok: false, error: 'Downloads can only be restarted by Nyra pages.' };
+    const download = storage.getDownloads().find((item) => item.id === String(id));
+    if (!download || !isSafeWebUrl(download.url)) {
+      return { ok: false, error: 'Download URL is unavailable.' };
+    }
+
+    event.sender.downloadURL(download.url);
+    return { ok: true };
+  });
+  ipcMain.handle('nyra:open-external-web-url', async (_event, url) => {
+    if (!isAllowedLocalFile(_event.sender.getURL())) return { ok: false, error: 'External handoff can only be started by Nyra pages.' };
+    if (!isSafeWebUrl(url)) return { ok: false, error: 'Only http and https URLs can be opened externally.' };
+
+    await shell.openExternal(url);
+    return { ok: true };
+  });
   ipcMain.handle('nyra:open-download-file', async (_event, id) => {
     const download = storage.getDownloads().find((item) => item.id === String(id));
     if (!download || !download.savePath) return { ok: false };

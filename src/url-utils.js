@@ -13,6 +13,7 @@
   const WEB_SCHEME_RE = /^https?:\/\//i;
   const EXTERNAL_SCHEME_RE = /^(mailto|tel):/i;
   const SAFE_INPUT_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
+  const PDF_PATH_RE = /\.pdf(?:$|[?#])/i;
   const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
   const DOMAIN_LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
 
@@ -86,7 +87,26 @@
     return searchUrl(value, searchEngine);
   }
 
+  function isPdfUrl(value) {
+    try {
+      const url = new URL(String(value || ""));
+      if (!["http:", "https:", "file:"].includes(url.protocol)) return false;
+      return PDF_PATH_RE.test(`${url.pathname}${url.search}${url.hash}`);
+    } catch {
+      return PDF_PATH_RE.test(String(value || ""));
+    }
+  }
+
+  function isPdfResponse(headers = {}) {
+    const contentType = headers["content-type"] || headers["Content-Type"] || "";
+    return Array.isArray(contentType)
+      ? contentType.some((value) => String(value).toLowerCase().includes("application/pdf"))
+      : String(contentType).toLowerCase().includes("application/pdf");
+  }
+
   return {
+    isPdfResponse,
+    isPdfUrl,
     normalizeUrlInput,
     searchUrl,
   };

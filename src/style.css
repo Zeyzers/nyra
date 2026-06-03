@@ -446,6 +446,42 @@ body[data-theme="light"] #url {
   color: var(--text);
 }
 
+#download {
+  position: relative;
+}
+
+#download::after {
+  border-radius: 10px;
+  content: "";
+  inset: -3px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 140ms ease;
+}
+
+#download.downloading {
+  border-color: rgba(255, 79, 134, 0.35);
+  color: var(--text);
+}
+
+#download.downloading::after {
+  background: conic-gradient(var(--accent) var(--download-progress, 0%), rgba(255, 255, 255, 0.08) 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+  opacity: 1;
+}
+
+#download.download-complete {
+  border-color: rgba(255, 79, 134, 0.45);
+  color: var(--accent);
+}
+
+#download.download-complete::after {
+  background: var(--accent-soft);
+  mask: none;
+  opacity: 1;
+}
+
 #navbar button:disabled {
   color: #4d5967;
   cursor: default;

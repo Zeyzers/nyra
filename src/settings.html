@@ -325,6 +325,7 @@
       function renderDownloads() {
         const folder = downloadsInfo?.folder || settings.downloadPath || downloadsInfo?.defaultFolder || "";
         return panel([
+          row("Downloads page", "Open the complete downloads manager.", `<button id="open-downloads-page" class="inline-button" type="button">Open downloads</button>`),
           row("Download location", "Used for downloads when save prompts are disabled.", `
             <div class="path-control">
               <code class="path-value">${escapeHtml(folder)}</code>
@@ -333,6 +334,7 @@
           `),
           row("Ask where to save", "Show a save dialog before each download.", switchControl("ask-download-location", settings.askDownloadLocation), true),
           row("Downloads folder", "Open the current download folder.", `<button id="open-downloads-folder" class="inline-button" type="button">Open folder</button>`),
+          row("Download history", "Clear the saved downloads list without deleting files.", `<button id="clear-downloads-history" class="inline-button" type="button">Clear history</button>`),
         ]);
       }
 
@@ -581,9 +583,16 @@
           renderSection(activeSection);
           setStatus("Download location updated.");
         });
+        document.getElementById("open-downloads-page")?.addEventListener("click", () => {
+          window.location.href = "./downloads.html";
+        });
         document.getElementById("open-downloads-folder")?.addEventListener("click", async () => {
           const result = await window.nyra.openDownloadsFolder();
           setStatus(result.ok ? "Downloads folder opened." : "Could not open downloads folder.");
+        });
+        document.getElementById("clear-downloads-history")?.addEventListener("click", async () => {
+          await window.nyra.clearDownloads();
+          setStatus("Downloads history cleared.");
         });
         document.getElementById("open-repository")?.addEventListener("click", async () => {
           const repository = appInfo?.repository || appInfo?.homepage;

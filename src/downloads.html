@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Downloads - Nyra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="assets/NyraLogo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="downloads.css" />
+  </head>
+  <body>
+    <main class="downloads-shell">
+      <header>
+        <div>
+          <h1>Downloads</h1>
+          <p>Review downloaded files, retry failed items and open files safely.</p>
+        </div>
+        <div class="downloads-actions">
+          <input id="downloads-search" type="search" placeholder="Search downloads" />
+          <select id="downloads-filter" title="Filter downloads">
+            <option value="all">All</option>
+            <option value="completed">Completed</option>
+            <option value="progress">In progress</option>
+            <option value="failed">Failed</option>
+            <option value="missing">Missing</option>
+          </select>
+          <button id="open-folder" type="button">Open folder</button>
+          <button id="clear-downloads" type="button">Clear all</button>
+        </div>
+      </header>
+
+      <section class="downloads-panel" aria-labelledby="downloads-title">
+        <div class="downloads-head" id="downloads-title">
+          <span>File</span>
+          <span>Status</span>
+          <span>Progress</span>
+          <span>Path</span>
+          <span>Actions</span>
+        </div>
+        <div id="downloads-list"></div>
+        <p id="downloads-count" class="downloads-count"></p>
+      </section>
+      <p id="status" role="status"></p>
+    </main>
+
+    <script src="settings-utils.js"></script>
+    <script src="icons.js"></script>
+    <script>
+      window.NyraIcons?.mount(document);
+
+      const search = document.getElementById("downloads-search");
+      const filter = document.getElementById("downloads-filter");
+      const list = document.getElementById("downloads-list");
+      const count = document.getElementById("downloads-count");
+      const clearButton = document.getElementById("clear-downloads");
+      const openFolderButton = document.getElementById("open-folder");
+      const status = document.getElementById("status");
+      let downloads = [];
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function originForUrl(value) {
+        try {
+          return new URL(value).hostname.replace(/^www\./, "");
+        } catch {
+          return value || "";
+        }
+      }
+
+      function formatBytes(bytes) {
+        const value = Number(bytes) || 0;
+        if (value < 1024) return `${value} B`;
+        if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+        if (value < 1024 * 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`;
+        return `${(value / 1024 / 1024 / 1024).toFixed(1)} GB`;
+      }
+
+      function formatDate(value) {
+        if (!value) return "";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "";
+        return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+      }
+
+      function stateGroup(download) {
+        const state = download.state || "completed";
+        if (state === "completed") return "completed";
+        if (state === "downloading" || state === "interrupted") return "progress";
+        if (state === "missing") return "missing";
+        return "failed";
+      }
+
+      function visibleDownloads() {
+        const query = search.value.trim().toLowerCase();
+        const stateFilter = filter.value;
+        return downloads.filter((download) => {
+          const haystack = [
+            download.filename,
+            download.url,
+            originForUrl(download.url),
+            download.savePath,
+            download.state,
+          ].join(" ").toLowerCase();
+          return (!query || haystack.includes(query)) &&
+            (stateFilter === "all" || stateGroup(download) === stateFilter);
+        });
+      }
+
+      function setStatus(message) {
+        status.textContent = message || "";
+      }
+
+      function render(downloadList = downloads) {
+        downloads = Array.isArray(downloadList) ? downloadList : [];
+        const visible = visibleDownloads();
+        clearButton.disabled = downloads.length === 0;
+        count.textContent = downloads.length
+          ? `Showing ${visible.length} of ${downloads.length} downloads`
+          : "";
+
+        if (!visible.length) {
+          list.innerHTML = `
+            <div class="empty-state">
+              <span data-icon="download"></span>
+              <strong>${downloads.length ? "No matching downloads" : "No downloads yet"}</strong>
+              <p>${downloads.length ? "Try another search or filter." : "Downloaded files will appear here."}</p>
+            </div>
+          `;
+          window.NyraIcons?.mount(list);
+          return;
+        }
+
+        list.innerHTML = visible.map((download) => {
+          const total = Number(download.totalBytes || 0);
+          const received = Number(download.receivedBytes || 0);
+          const percent = Math.min(100, Math.max(0, Number(download.percent || (total ? (received / total) * 100 : 0))));
+          const totalText = total ? ` / ${formatBytes(total)}` : "";
+          const date = formatDate(download.completedAt || download.startedAt);
+          const canOpen = download.state === "completed";
+          const canShow = Boolean(download.savePath) && download.state !== "missing";
+          const canRetry = Boolean(download.url) && ["failed", "canceled", "cancelled", "interrupted", "missing"].includes(download.state);
+
+          return `
+            <article class="download-item" data-download-id="${escapeHtml(download.id)}">
+              <div class="download-main">
+                <strong title="${escapeHtml(download.filename || "Download")}">${escapeHtml(download.filename || "Download")}</strong>
+                <span class="download-origin" title="${escapeHtml(download.url || "")}">${escapeHtml(originForUrl(download.url) || "Unknown origin")}</span>
+                <span class="download-date">${escapeHtml(date)}</span>
+              </div>
+              <span class="download-state ${escapeHtml(download.state || "completed")}">${escapeHtml(download.state || "completed")}</span>
+              <div class="download-meta">
+                <span class="download-progress-text">${Math.round(percent)}% · ${formatBytes(received)}${totalText}</span>
+                <div class="download-bar" style="--progress:${percent}%"></div>
+              </div>
+              <span class="download-path" title="${escapeHtml(download.savePath || "")}">${escapeHtml(download.savePath || "No local path yet")}</span>
+              <div class="download-actions">
+                <button class="open-file" type="button" ${canOpen ? "" : "disabled"}>Open</button>
+                <button class="show-folder" type="button" ${canShow ? "" : "disabled"}>Folder</button>
+                <button class="retry-download" type="button" ${canRetry ? "" : "disabled"}>Retry</button>
+                <button class="remove-download" type="button">Remove</button>
+              </div>
+            </article>
+          `;
+        }).join("");
+
+        list.querySelectorAll(".download-item").forEach((item) => {
+          const id = item.dataset.downloadId;
+          item.querySelector(".open-file")?.addEventListener("click", async () => {
+            const result = await window.nyra.openDownloadFile(id);
+            setStatus(result.ok ? "File opened." : "Could not open file.");
+          });
+          item.querySelector(".show-folder")?.addEventListener("click", async () => {
+            const result = await window.nyra.showDownloadInFolder(id);
+            setStatus(result.ok ? "File shown in folder." : "Could not show file in folder.");
+          });
+          item.querySelector(".retry-download")?.addEventListener("click", async () => {
+            const result = await window.nyra.retryDownload(id);
+            setStatus(result.ok ? "Download restarted." : `Could not retry download: ${result.error || "Unknown error"}`);
+          });
+          item.querySelector(".remove-download")?.addEventListener("click", async () => {
+            downloads = await window.nyra.removeDownload(id);
+            render(downloads);
+            setStatus("Download removed.");
+          });
+        });
+      }
+
+      async function load() {
+        window.NyraSettings?.applyAppearance(await window.nyra.getSettings());
+        downloads = await window.nyra.getDownloads();
+        render(downloads);
+      }
+
+      search.addEventListener("input", () => render(downloads));
+      filter.addEventListener("change", () => render(downloads));
+      clearButton.addEventListener("click", async () => {
+        downloads = await window.nyra.clearDownloads();
+        render(downloads);
+        setStatus("Downloads history cleared.");
+      });
+      openFolderButton.addEventListener("click", async () => {
+        const result = await window.nyra.openDownloadsFolder();
+        setStatus(result.ok ? "Downloads folder opened." : "Could not open downloads folder.");
+      });
+
+      window.nyra.onSettingsChanged((settings) => window.NyraSettings?.applyAppearance(settings));
+      window.nyra.onDownloadsChanged((nextDownloads) => {
+        downloads = Array.isArray(nextDownloads) ? nextDownloads : [];
+        render(downloads);
+      });
+      load().catch((error) => setStatus(error && error.message ? error.message : "Downloads failed to load."));
+    </script>
+  </body>
+</html>

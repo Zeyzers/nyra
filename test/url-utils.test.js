@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { normalizeUrlInput } = require("../src/url-utils");
+const { isPdfResponse, isPdfUrl, normalizeUrlInput } = require("../src/url-utils");
 
 const cases = [
   ["https://example.com/path?q=1", "https://example.com/path?q=1"],
@@ -27,4 +27,12 @@ for (const [input, expected, options] of cases) {
   assert.equal(normalizeUrlInput(input, options), expected, input);
 }
 
-console.log(`url-utils: ${cases.length} cases passed`);
+assert.equal(isPdfUrl("https://example.com/file.pdf"), true);
+assert.equal(isPdfUrl("https://example.com/file.pdf?download=1"), true);
+assert.equal(isPdfUrl("https://example.com/file.PDF#page=2"), true);
+assert.equal(isPdfUrl("https://example.com/file.txt"), false);
+assert.equal(isPdfResponse({ "content-type": "application/pdf" }), true);
+assert.equal(isPdfResponse({ "Content-Type": ["text/html", "application/pdf; charset=binary"] }), true);
+assert.equal(isPdfResponse({ "content-type": "text/html" }), false);
+
+console.log(`url-utils: ${cases.length} cases and PDF helpers passed`);

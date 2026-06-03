@@ -71,6 +71,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     "nyra://blank": "./blank.html",
     "nyra://bookmarks": "./bookmarks.html",
     "nyra://diagnostics": "./diagnostics.html",
+    "nyra://downloads": "./downloads.html",
     "nyra://extensions": "./extensions.html",
     "nyra://history": "./history.html",
     "nyra://site-data": "./site-data.html",
@@ -143,6 +144,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   let devtoolsTargetId = null;
   let commandPaletteIndex = 0;
   let visibleCommands = [];
+  let hasUnseenCompletedDownloads = false;
+  let previousDownloadStates = new Map();
 
   async function safeNyraCall(label, fallback, callback) {
     try {
@@ -195,6 +198,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     downloads = safeMode
       ? []
       : await safeNyraCall("getDownloads", [], () => window.nyra.getDownloads());
+    previousDownloadStates = new Map(downloads.map((download) => [download.id, download.state]));
     permissions = safeMode
       ? []
       : await safeNyraCall("getPermissions", [], () => window.nyra.getPermissions());
@@ -219,7 +223,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
 
     window.nyra.onDownloadsChanged((nextDownloads) => {
-      downloads = Array.isArray(nextDownloads) ? nextDownloads : [];
+      updateDownloadIndicator(Array.isArray(nextDownloads) ? nextDownloads : []);
       renderDownloadsMenu();
     });
 
@@ -275,6 +279,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       url === "nyra://blank" ||
       url === "nyra://bookmarks" ||
       url === "nyra://diagnostics" ||
+      url === "nyra://downloads" ||
       url === "nyra://extensions" ||
       url === "nyra://history" ||
       url === "nyra://site-data" ||
@@ -369,6 +374,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       code: String(errorCode),
       description: errorDescription || "Load failed",
     });
+    if (window.NyraUrl?.isPdfUrl?.(failedUrl)) {
+      params.set("type", "pdf");
+    }
 
     return new URL(`./error.html?${params.toString()}`, window.location.href).toString();
   }
@@ -456,6 +464,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (tabUrl === "nyra://settings") return "gear";
     if (tabUrl === "nyra://bookmarks") return "bookmark";
     if (tabUrl === "nyra://diagnostics") return "info";
+    if (tabUrl === "nyra://downloads") return "download";
     if (tabUrl === "nyra://extensions") return "extensions";
     if (tabUrl === "nyra://site-data") return "shield";
     if (tab.private) return "moon";
@@ -668,13 +677,51 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  function updateDownloadIndicator(nextDownloads = downloads) {
+    const incomingDownloads = Array.isArray(nextDownloads) ? nextDownloads : [];
+    const nextStates = new Map(incomingDownloads.map((download) => [download.id, download.state]));
+    const activeDownloads = incomingDownloads.filter((download) => (
+      download.state === "downloading" ||
+      download.state === "interrupted"
+    ));
+    const completedNow = incomingDownloads.some((download) => {
+      const previousState = previousDownloadStates.get(download.id);
+      return download.state === "completed" && previousState && previousState !== "completed";
+    });
+
+    downloads = incomingDownloads;
+    previousDownloadStates = nextStates;
+    if (completedNow && !(downloadsMenu && downloadsMenu.hidden === false)) {
+      hasUnseenCompletedDownloads = true;
+    }
+
+    if (!downloadBtn) return;
+
+    const averageProgress = activeDownloads.length
+      ? activeDownloads.reduce((sum, download) => sum + Math.min(100, Math.max(0, Number(download.percent || 0))), 0) / activeDownloads.length
+      : 0;
+
+    downloadBtn.classList.toggle("downloading", activeDownloads.length > 0);
+    downloadBtn.classList.toggle("download-complete", hasUnseenCompletedDownloads && activeDownloads.length === 0);
+    downloadBtn.style.setProperty("--download-progress", `${Math.round(averageProgress)}%`);
+    downloadBtn.title = activeDownloads.length
+      ? `Downloading ${activeDownloads.length} item${activeDownloads.length === 1 ? "" : "s"}`
+      : hasUnseenCompletedDownloads
+        ? "Downloads completed"
+        : "Downloads";
+  }
+
   function toggleDownloadsMenu(forceOpen) {
     if (!downloadsMenu || !downloadBtn) return;
 
     const open = typeof forceOpen === "boolean" ? forceOpen : downloadsMenu.hidden;
     downloadsMenu.hidden = !open;
     downloadBtn.setAttribute("aria-expanded", String(open));
-    if (open) renderDownloadsMenu();
+    if (open) {
+      hasUnseenCompletedDownloads = false;
+      updateDownloadIndicator(downloads);
+      renderDownloadsMenu();
+    }
   }
 
   function permissionSummaryForDomain(domain) {
@@ -981,6 +1028,19 @@ window.addEventListener("DOMContentLoaded", async () => {
     createTab("nyra://bookmarks");
   }
 
+  function openDownloadsTab() {
+    const existingDownloadsTab = tabs.find(
+      (tab) => displayUrlForSession(tab.webview.src) === "nyra://downloads"
+    );
+
+    if (existingDownloadsTab) {
+      switchToTab(existingDownloadsTab.id);
+      return;
+    }
+
+    createTab("nyra://downloads");
+  }
+
   function openExtensionsTab() {
     const existingExtensionsTab = tabs.find(
       (tab) => displayUrlForSession(tab.webview.src) === "nyra://extensions"
@@ -1028,10 +1088,10 @@ window.addEventListener("DOMContentLoaded", async () => {
       { id: "bookmarks", title: "Open bookmarks", hint: "Manage saved bookmarks", icon: "bookmark", run: () => openBookmarksTab() },
       { id: "history", title: "Open history", hint: "Browse visited pages", icon: "history", run: () => openHistoryTab() },
       { id: "extensions", title: "Open extensions", hint: "Manage unpacked extensions", icon: "extensions", run: () => openExtensionsTab() },
+      { id: "downloads", title: "Open downloads", hint: "Review downloaded files", icon: "download", run: () => openDownloadsTab() },
       { id: "site-data", title: "Open site data", hint: "Cookies and local storage manager", icon: "shield", run: () => openSiteDataTab() },
       { id: "diagnostics", title: "Open diagnostics", hint: "Startup, GPU and cache recovery", icon: "info", run: () => openDiagnosticsTab() },
       { id: "settings", title: "Open settings", hint: "Nyra preferences", icon: "gear", run: () => openSettingsTab() },
-      { id: "downloads", title: "Show downloads", hint: "Recent downloads dropdown", icon: "download", run: () => toggleDownloadsMenu(true) },
       { id: "toggle-sidebar", title: "Toggle sidebar", hint: "Expanded or compact sidebar", icon: "layout", run: () => toggleSidebarBtn.click() },
       { id: "reload", title: "Reload active tab", hint: "Reload the current page", shortcut: "Ctrl+R", icon: "reload", run: () => performShortcut("reload-tab") },
       { id: "reopen-tab", title: "Reopen closed tab", hint: "Restore the last closed tab", shortcut: "Ctrl+Shift+T", icon: "history", run: () => reopenClosedTab() },
@@ -1122,6 +1182,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const items = [
       [sideHomeBtn, url === "nyra://newtab" || url === "nyra://blank"],
       [sideBookmarksBtn, url === "nyra://bookmarks"],
+      [sideDownloadsBtn, url === "nyra://downloads"],
       [sideExtensionsBtn, url === "nyra://extensions"],
       [sideHistoryBtn, url === "nyra://history"],
       [sideSettingsBtn, url === "nyra://settings"],
@@ -1167,11 +1228,13 @@ window.addEventListener("DOMContentLoaded", async () => {
             ? "Bookmarks"
             : url === "nyra://diagnostics"
               ? "Diagnostics"
-              : url === "nyra://extensions"
-                ? "Extensions"
-                : url === "nyra://site-data"
-                  ? "Site Data"
-                  : "New Tab"),
+              : url === "nyra://downloads"
+                ? "Downloads"
+                : url === "nyra://extensions"
+                  ? "Extensions"
+                  : url === "nyra://site-data"
+                    ? "Site Data"
+                    : "New Tab"),
       url,
       loading: false,
       pinned: Boolean(metadata.pinned),
@@ -1251,6 +1314,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       if (tab.id === activeTabId) {
         urlInput.value = resolveVirtualUrl(e.url);
         updateCurrentPageStorage();
+        updateSideNav();
       }
       updateBookmarkButton();
       recordHistoryForTab(tab, e.url);
@@ -1261,6 +1325,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       if (tab.id === activeTabId) {
         urlInput.value = resolveVirtualUrl(e.url);
         updateCurrentPageStorage();
+        updateSideNav();
       }
       updateBookmarkButton();
       recordHistoryForTab(tab, e.url);
@@ -1599,10 +1664,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     sideExtensionsBtn.onclick = () => openExtensionsTab();
   }
   if (sideDownloadsBtn) {
-    sideDownloadsBtn.onclick = (event) => {
-      event.stopPropagation();
-      toggleDownloadsMenu(true);
-    };
+    sideDownloadsBtn.onclick = () => openDownloadsTab();
   }
   sideHistoryBtn.onclick = () => openHistoryTab();
   sideSettingsBtn.onclick = () => openSettingsTab();
