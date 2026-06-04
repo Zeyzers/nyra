@@ -1,11 +1,12 @@
 # Nyra（ナイラ）
 
+> - This project is also available in **[English](../README.md)**.
 > - Questo progetto è disponibile anche in **[Italiano](./README.it.md)**.
 > - Dieses Projekt ist auch in **[Deutsch](./README.de.md)** verfügbar.
-> - This project is also available in **[English](../README.md)**.
 
-Nyraは、Electronで作られたミニマルでパーソナルなウェブブラウザです。
-軽量で気が散らない、プライバシーを大切にした、あなたのためのブラウザ。
+Nyraは、Electronで作られたミニマルでパーソナルなデスクトップブラウザです。
+
+静かで速く、デフォルトでプライバシーを大切にしながら、タブ、ブックマーク、履歴、ダウンロード、設定、権限、保存済みパスワード、自動アップデートなど、日常的なブラウザ機能も備えることを目指しています。
 
 ![GitHub repo size](https://img.shields.io/github/repo-size/zeyzers/nyra?style=flat-square)
 ![GitHub last commit](https://img.shields.io/github/last-commit/zeyzers/nyra?style=flat-square)
@@ -13,122 +14,277 @@ Nyraは、Electronで作られたミニマルでパーソナルなウェブブ�
 
 ---
 
-## ✨ 特徴
+## ステータス
 
-- **ミニマルなUI**：必要なものだけを表示
-- **ダークテーマ対応**：夜でも快適に使える
-- **Electron製**：HTML、CSS、JavaScriptで構築
-- **キーボード操作中心（予定）**：マウスなしでも快適に操作
-- **ナビゲーションボタン**：戻る／進むが可能
-- **タブ機能**：複数のタブを簡単に操作・管理
-- **アドレスバー**：URLをリアルタイムで更新
-- **ウィンドウタイトル**：ページタイトルを反映
-- **スマートな新しいタブページ**：検索バー付きのカスタムホーム
-- **モジュール構造**：拡張やカスタマイズが簡単
-- **DevTools切り替え**：F12 または Ctrl+Shift+I でアクティブなwebviewを検査できます。
-- **永続的な設定**：Nyraは小さなJSON状態ファイルに設定を保存します。
-- **セッション復元**：起動時に前回のタブを任意で復元できます。
-- **内部設定ページ**：`nyra://settings` で基本的なブラウジング動作を変更できます。
-- **ブラウザ操作**：動的なリロード/停止、ホーム、設定、ブックマーク操作をツールバーから使えます。
-- **基本的なブックマーク**：通常のWebページを保存し、`nyra://newtab` から開けます。
-- **ローカル履歴**：最近開いた通常のWebページをローカルに保存し、`nyra://history` に表示します。
-- **読み込み失敗ページ**：ナビゲーションに失敗したとき、Nyraはシンプルな内部エラーページを表示します。
-- **プライバシー重視の初期設定**：HTTPS-firstナビゲーション、ポップアップブロック、サイト権限のデフォルト拒否。
+現在のバージョン: **1.6.2**
+
+Nyraは現在も開発中です。現時点ではWindowsが主なターゲットです。Linux向けのパッケージングスクリプトもありますが、機能とリリースはまずWindowsで検証されています。
+
+最新リリース:
+
+https://github.com/zeyzers/nyra/releases
 
 ---
 
-## 🚀 はじめかた
+## プロジェクトの状態
+
+Nyraは個人開発のオープンソースブラウザプロジェクトです。利用はできますが、まだ実験的です。アップデートは自分の自由時間に行っています。
+
+---
+
+## Nyraを作った理由
+
+Nyraは、デスクトップブラウザの仕組みを理解し、Electronを試し、自分らしく、シンプルで、改造しやすいブラウザを作るために始めました。
+
+---
+
+## 機能
+
+### ブラウザシェル
+
+- Nyraのアクセントカラーを持つ、ダークでフラットなモダンUI。
+- 複数タブ、タブのクローズ、ドラッグ&ドロップ並び替え、ピン留め、複製、ミュート/解除。
+- `Ctrl+Shift+T` で閉じたタブを再度開く。
+- タブのメタデータを含むセッション復元。
+- 永続設定つきのコンパクト/展開サイドバー。
+- 戻る、進む、リロード/停止、ホーム、アドレスバー、ブックマーク、ダウンロード、履歴、設定を含むツールバー。
+- よく使う操作のキーボードショートカット。
+- アクティブなwebview用のドッキングDevTools。
+- YouTubeなどのサイト向けFullscreen対応。
+- 起動アニメーションとWindowsネイティブアイコン。
+- 再起動後に適用されるハードウェアアクセラレーション設定。
+
+### 内部ページ
+
+Nyraはブラウザ機能に内部ページを使います:
+
+- `nyra://newtab` - プライベート検索とブックマークグリッドの開始ページ。
+- `nyra://blank` - 空の新規タブ。
+- `nyra://history` - 検索と削除ができるローカル履歴。
+- `nyra://bookmarks` - ブックマークマネージャ。
+- `nyra://downloads` - ダウンロードマネージャ。
+- `nyra://settings` - 設定。
+- `nyra://site-data` - CookieとLocal Storageの管理。
+- `nyra://diagnostics` - 起動、キャッシュ、ブラウザ診断。
+- `nyra://extensions` - unpacked拡張機能の管理。
+
+### 検索とナビゲーション
+
+- アドレスバーでURLと検索クエリに対応。
+- 検索エンジン: DuckDuckGo、Google、Bing。
+- プロトコルなしドメインのHTTPS-firstナビゲーション。
+- サポート外の入力スキームを安全に処理。
+- リトライ操作つきの内部エラーページ。
+- PDFリンクは可能な場合Chromium/Electronで開きます。読み込みに失敗した場合は、retry、PDF download、外部で開く操作を表示します。
+
+### ブックマーク
+
+- ツールバーからブックマーク追加/削除。
+- New Tabページのブックマークグリッド。
+- `nyra://bookmarks` の完全なブックマーク管理。
+- 編集、削除、検索、ソート。
+- 1階層のブックマークフォルダ。
+- ドラッグ&ドロップによる並び替え。
+- ブラウザ形式HTMLのインポート/エクスポート。
+- ブラウザシェル内のブックマークバー。
+
+### ダウンロード
+
+- ローカルに保存される永続的なダウンロード履歴。
+- ツールバーのダウンロードドロップダウン。
+- `nyra://downloads` の完全なダウンロード管理。
+- 検索とステータスフィルタ。
+- 状態: downloading、completed、failed、canceled、missing。
+- 進捗、ファイルサイズ、origin、ローカルパス、日時表示。
+- open file、show in folder、retry、remove、clear history。
+- ダウンロード中はツールバーアイコンの周囲にライブ円形インジケータを表示。
+- 完了したダウンロードは、ドロップダウンを開くまでアイコンがハイライトされます。
+- ダウンロードフォルダと「保存先を確認」設定。
+
+### パスワードマネージャ
+
+- Electron `safeStorage` が利用可能な場合、ローカルで暗号化されたパスワード保存。
+- originごとの複数アカウント。
+- 保存/更新の明示的なプロンプト。
+- ユーザー操作後にのみ認証情報を入力。
+- 設定内で保存済みパスワードを管理。
+- reveal、username copy、password copy、delete login、clear all。
+- プライベートタブではパスワードを保存しません。
+
+### プライバシーとセキュリティ
+
+- リモートページは分離されたwebviewで実行されます。
+- Nyra APIは信頼されたローカルページのみに公開されます。
+- Node.jsはリモートページに公開されません。
+- Webポップアップはデフォルトでブロックされます。
+- デフォルトでは `mailto:` と `tel:` のみOSへ渡されます。
+- サイト権限はNyraのプロンプトで処理され、ドメインごとに保存されます。
+- 権限マネージャはcamera、microphone、geolocation、notificationsに対応。
+- Site Data ManagerでCookie/Local Storageをドメインごと、または一括削除できます。
+- プライベートタブは別のwebview partitionを使い、セッション、履歴、パスワード保存フローから除外されます。
+
+### アップデートとパッケージング
+
+- Windows installer: `NyraSetup.exe`。
+- Windows portable build: `Nyra.exe`。
+- GitHub Releasesで配布。
+- パッケージ済みビルドは `electron-updater` による update check に対応。
+- リリースメタデータには `latest.yml` とNSIS blockmapを含みます。
+- Linux向けに `tar.gz`、`AppImage`、`deb` のスクリプトがありますが、現在の主な検証対象はWindowsです。
+
+---
+
+## はじめかた
 
 ### 必要なもの
 
-以下がインストールされていることを確認してください：
-
-- [Node.js](https://nodejs.org/)（バージョン14以上）
+- [Node.js](https://nodejs.org/)
 - [Git](https://git-scm.com/)
 
 ### クローンと起動
 
-以下の手順で開始できます：
-
 ```bash
-# リポジトリをクローン
 git clone https://github.com/zeyzers/nyra.git
-
-# ディレクトリに移動
 cd nyra
-
-# 依存関係をインストール
 npm install
-
-# アプリを起動
 npm start
 ```
 
 ---
 
-## 🛠️ 今後の予定
+## 開発スクリプト
 
-- [x] アドレス入力でURLを読み込み
-- [x] 戻る／進むボタン追加
-- [x] ウィンドウタイトルを動的に表示
-- [x] ダブルスクロールのバグ修正
-- [x] 新しいタブに検索バーを追加
-- [x] アクティブなwebviewのDevTools切り替え
-- [x] Electron userDataに永続的な設定を保存
-- [x] セッション復元
-- [x] 設定ページ（`nyra://settings`）
-- [x] 動的なリロード/停止、ホーム、設定、ブックマークのツールバー操作
-- [x] `nyra://newtab` の基本的なブックマーク
-- [x] 専用のローカル履歴タブ（`nyra://history`）
-- [x] ローカルアドレス向けの明示的なHTTP再試行付き内部エラーページ
-- [ ] DevToolsをアプリ内に表示
-- [ ] 動的なお気に入り管理
-- [ ] 新しいタブの背景をカスタム
-- [ ] JavaScriptやCookieのオン・オフ切替
-- [x] 複数タブに対応
-- [x] タブを閉じるボタン追加
-- [ ] Aboutページ（`nyra://about`）
+```bash
+npm start
+```
 
----
+開発モードでNyraを起動します。
 
-## 🔒 プライバシーとセキュリティ
+```bash
+npm run lint
+```
 
-Nyraのプライバシーモデルは、現在は意図的に小さく明示的に保たれています：
+main、preload、renderer、helper、testの構文チェックを実行します。
 
-- プロトコルなしのドメインは、デフォルトで `https://` として開きます。
-- `nyra://settings` から、ローカル開発やテスト向けにHTTPS-first動作を無効化できます。
-- Webポップアップは自動で開かず、ブロックされます。
-- サイト権限のリクエストは、ユーザー向けの権限管理UIが追加されるまでデフォルトで拒否されます。
-- 外部プロトコルとしてOS経由で開くのは `mailto:` と `tel:` のみです。
-- `javascript:alert(1)` のような危険な入力スキームは、ナビゲーションではなく検索テキストとして扱われます。
-- `localhost` またはプライベートLAN IPまたはIPv4アドレスでHTTPS読み込みに失敗した場合、明示的なボタンをクリックしたときだけHTTPで再試行できます。
+```bash
+npm test
+```
 
-永続状態はElectronの `userData` ディレクトリに `nyra-state.json` として保存されます。現在は設定、保存されたセッションタブ、ブックマーク、最近の履歴を含みます。
+ローカルテストスイートを実行します。
 
-提案があればぜひシェアしてください！
+```bash
+npm run dist
+```
+
+Windows installerとportable buildを作成します。
+
+```bash
+npm run dist:linux
+```
+
+Linux `tar.gz` パッケージを作成します。
+
+```bash
+npm run dist:linux:full
+```
+
+Linux `AppImage`、`deb`、`tar.gz` を作成します。
 
 ---
 
-## 🤝 コントリビュート
+## リリースワークフロー
 
-貢献は大歓迎です！やり方は以下の通り：
+Nyraは配布とupdater metadataにGitHub Releasesを使います。
 
-1. リポジトリをフォークします
-2. ブランチを作成（`git checkout -b feature-name`）
-3. 変更をコミット（`git commit -m 'Add some feature'`）
-4. プッシュ（`git push origin feature-name`）
-5. プルリクエストを作成
+通常の流れ:
+
+1. feature/fixを完成させてcommitする。
+2. 実際にreleaseを準備するときだけversion bumpする。
+3. `npm run lint` を実行。
+4. `npm test` を実行。
+5. `npm run dist` を実行。
+6. version bumpをcommit。
+7. `v1.6.2` のようなtagを作成。
+8. GitHub Releaseを作成してアップロード:
+   - `NyraSetup.exe`
+   - `NyraSetup.exe.blockmap`
+   - `latest.yml`
+   - 必要なら `Nyra.exe`
+
+実用的なsemantic versioning:
+
+- Patch: bugfix、polish、小さく安全なfeature。
+- Minor: 大きめのユーザー向けfeature pack。
+- Major: breaking change、または大きなarchitecture/data変更。
 
 ---
 
-## 📜 ライセンス
+## ストレージ
+
+NyraはElectronの `userData` ディレクトリにブラウザ状態を保存します。
+
+メインの状態ファイル:
+
+- `nyra-state.json`
+
+設定、セッションタブ、ブックマーク、ダウンロード、権限、履歴、拡張機能メタデータなどのローカル状態を含みます。
+
+パスワードは別ファイルに保存されます:
+
+- `passwords.json`
+
+OS暗号化が利用可能な場合、パスワードはElectron `safeStorage` で暗号化されます。破損したstate/passwordファイルは、クリーンな初期状態を作る前にバックアップされます。
+
+---
+
+## プライバシーノート
+
+Nyraはlocal-firstです:
+
+- アカウントシステムなし。
+- クラウド同期なし。
+- このrepositoryにはtelemetry実装なし。
+- パスワードサーバーなし。
+- WebサイトからのリモートNodeアクセスなし。
+
+ただし、Cookie、Local Storage、ダウンロード履歴、保存済みパスワード、閲覧履歴などの通常のブラウザデータは、使い方や設定によってローカルに保存されます。
+
+---
+
+## ロードマップ
+
+今後改善したい主な領域:
+
+- ブックマークバーのより完全な操作。
+- より完全な拡張機能サポート。
+- Reader mode。
+- Task Manager/プロセス情報のような高度な診断。
+- Nyraユーザーデータ全体のより良いimport/export。
+- Private modeのさらなるpolishとaudit。
+- Electron/ChromiumのネイティブPDF動作が不安定な場合のより強いPDF handling。
+
+---
+
+## コントリビュート
+
+貢献は歓迎です。
+
+1. リポジトリをforkします。
+2. branchを作成します。
+3. 変更をcommitします。
+4. branchをpushします。
+5. pull requestを作成します。
+
+変更はできるだけ焦点を絞り、関係のないfeatureを1つのPRに混ぜないでください。
+
+---
+
+## ライセンス
 
 このプロジェクトはMITライセンスで公開されています。
-自由に使用・改変・配布できますが、[作者](https://github.com/zeyzers)へのクレジットをお願いします。
 
 ---
 
-## 👤 作者
+## 作者
 
 [@zeyzers](https://github.com/zeyzers) によって好奇心で作られました。
-他のプロジェクトもぜひ見てみてください！

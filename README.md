@@ -4,8 +4,9 @@
 > - Dieses Projekt ist auch in **[Deutsch](./docs/README.de.md)** verfügbar.
 > - このプロジェクトは、**[日本語](./docs/README.jp.md)** にもあります。
 
-Nyra is a minimal, personal web browser built with Electron.  
-Fast, distraction-free, privacy-first — and fully yours.
+Nyra is a minimal, personal desktop browser built with Electron.
+
+It is designed to feel quiet, fast and private by default, while still giving you the everyday browser tools you expect: tabs, bookmarks, history, downloads, settings, permissions, saved passwords and automatic updates.
 
 ![GitHub repo size](https://img.shields.io/github/repo-size/zeyzers/nyra?style=flat-square)
 ![GitHub last commit](https://img.shields.io/github/last-commit/zeyzers/nyra?style=flat-square)
@@ -13,122 +14,277 @@ Fast, distraction-free, privacy-first — and fully yours.
 
 ---
 
-## ✨ Features
+## Status
 
-- **Clean, minimal UI**: Focus on what matters.  
-- **Dark theme ready**: Perfect for night-time browsing.  
-- **Built with Electron**: Powered by HTML, CSS, and JavaScript.  
-- **Keyboard-first navigation**: (Planned) Navigate effortlessly without a mouse.  
-- **Navigation controls**: Forward/back buttons like any modern browser.  
-- **Multiple Tabs**: Open and manage multiple tabs seamlessly.  
-- **Dynamic address bar**: Updates with current URL in real time.  
-- **Dynamic window title**: Shows page title in the app window.  
-- **Smart new tab page**: Custom homepage with integrated search.  
-- **Modular by design**: Extend and customize with ease.  
-- **DevTools toggle**: Press F12 or Ctrl+Shift+I to inspect the active webview.
-- **Persistent settings**: Nyra stores settings in a small JSON state file.
-- **Session restore**: Optionally restores your previous tabs on launch.
-- **Internal settings page**: Visit `nyra://settings` to change core browsing behavior.
-- **Browser controls**: A dynamic reload/stop control, home, settings, and bookmark controls live in the toolbar.
-- **Basic bookmarks**: Bookmark normal web pages and access them from `nyra://newtab`.
-- **Local history**: Recent normal web pages are stored locally and shown on `nyra://history`.
-- **Failed-load page**: Nyra shows a simple internal error page when navigation fails.
-- **Privacy-minded defaults**: HTTPS-first navigation, blocked popups, and denied site permissions by default.
+Current version: **1.6.2**
+
+Nyra is actively evolving. Windows is the primary target right now. Linux packaging scripts exist, but Windows is where features and releases are currently validated first.
+
+Download the latest release from:
+
+https://github.com/zeyzers/nyra/releases
 
 ---
 
-## 🚀 Getting Started
+## Project Status
+
+Nyra is a personal open-source browser project. It is usable, but still experimental. Updates are made in my free time.
+
+---
+
+## Why I Built Nyra
+
+I built Nyra to understand how desktop browsers work, experiment with Electron, and create a browser that feels personal, simple, and hackable.
+
+---
+
+## Features
+
+### Browser Shell
+
+- Dark, flat, modern browser UI with a Nyra accent color system.
+- Multi-tab browsing with close buttons, drag and drop reorder, pinned tabs, duplicate tab and mute/unmute.
+- Reopen closed tab with `Ctrl+Shift+T`.
+- Session restore with saved tab metadata.
+- Compact/expanded sidebar with persistent setting.
+- Toolbar navigation: back, forward, reload/stop, home, address bar, bookmark, downloads, history and settings.
+- Keyboard shortcuts for common browser actions.
+- Docked DevTools for the active webview.
+- Fullscreen support for sites such as YouTube.
+- Startup animation and native Windows icon integration.
+- Hardware acceleration setting, applied on restart.
+
+### Internal Pages
+
+Nyra uses internal pages for browser features:
+
+- `nyra://newtab` - Start page with private search and bookmark grid.
+- `nyra://blank` - Blank new tab option.
+- `nyra://history` - Local browsing history with search and delete controls.
+- `nyra://bookmarks` - Bookmarks manager.
+- `nyra://downloads` - Downloads manager.
+- `nyra://settings` - Settings.
+- `nyra://site-data` - Cookies and local storage manager.
+- `nyra://diagnostics` - Startup, cache and browser diagnostics.
+- `nyra://extensions` - Unpacked extensions management.
+
+### Search and Navigation
+
+- Address bar supports URLs and search queries.
+- Search engines: DuckDuckGo, Google and Bing.
+- HTTPS-first navigation for bare domains.
+- Safe handling for unsupported typed schemes.
+- Internal failed-load page with retry controls.
+- PDF links are opened with Chromium/Electron where possible; if loading fails, Nyra shows PDF-specific actions such as retry, download PDF and open externally.
+
+### Bookmarks
+
+- Add/remove bookmark from the toolbar.
+- Bookmark grid on the New Tab page.
+- Full bookmarks manager at `nyra://bookmarks`.
+- Edit, delete, search and sort bookmarks.
+- One-level bookmark folders.
+- Drag and drop bookmark ordering.
+- Import/export browser-style bookmarks HTML.
+- Bookmarks bar in the browser shell.
+
+### Downloads
+
+- Persistent downloads history stored locally.
+- Toolbar downloads dropdown for quick access.
+- Full downloads manager at `nyra://downloads`.
+- Search and status filters.
+- Download states: downloading, completed, failed, canceled and missing.
+- Progress, file size, origin, local path and date display.
+- Open file, show in folder, retry, remove from list and clear history.
+- Live circular progress indicator around the toolbar download icon while downloads are active.
+- Completed downloads highlight the toolbar icon until the dropdown is opened.
+- Configurable download folder and "ask where to save" setting.
+
+### Password Manager
+
+- Local encrypted password storage using Electron `safeStorage` when available.
+- Multiple accounts per origin.
+- Explicit save/update prompts.
+- Fill saved credentials only after user action.
+- Saved passwords management in Settings.
+- Reveal, copy username, copy password, delete login and clear all saved logins.
+- Passwords are not stored for private tabs.
+
+### Privacy and Security
+
+- Remote pages run in isolated webviews.
+- Nyra APIs are exposed only to trusted local pages.
+- Node.js is not exposed to remote pages.
+- Web popups are blocked by default.
+- Only `mailto:` and `tel:` are handed off externally by default.
+- Site permissions are handled through Nyra prompts and persisted per domain.
+- Permissions manager supports camera, microphone, geolocation and notifications.
+- Site data manager can clear cookies/local storage by domain or all at once.
+- Private tabs use separate non-default webview partitions and are excluded from saved session/history/password flows.
+
+### Updates and Packaging
+
+- Windows installer: `NyraSetup.exe`.
+- Windows portable build: `Nyra.exe`.
+- GitHub Releases are used for distribution.
+- Packaged builds support update checks through `electron-updater`.
+- Release metadata includes `latest.yml` and NSIS blockmaps for updater support.
+- Linux packaging scripts are present for `tar.gz`, `AppImage` and `deb`, but Windows is currently the main tested release target.
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-Ensure you have the following installed:
-
-- [Node.js](https://nodejs.org/) (v14 or later)
+- [Node.js](https://nodejs.org/)
 - [Git](https://git-scm.com/)
 
-### Clone & Run
-
-Follow these steps to get started:
+### Clone and Run
 
 ```bash
-# Clone the repository
 git clone https://github.com/zeyzers/nyra.git
-
-# Navigate to the project directory
 cd nyra
-
-# Install dependencies
 npm install
-
-# Start the application
 npm start
 ```
 
 ---
 
-## 🛠️ Roadmap
+## Development Scripts
 
-- [x] Load URL via input  
-- [x] Add forward/back buttons  
-- [x] Dynamic window title  
-- [x] Fix double scroll issue  
-- [x] New tab with smart search bar  
-- [x] DevTools toggle for the active webview
-- [x] Persistent settings stored in Electron userData
-- [x] Session restore
-- [x] Settings page (`nyra://settings`)
-- [x] Dynamic reload/stop, home, settings, and bookmark toolbar controls
-- [x] Basic bookmarks on `nyra://newtab`
-- [x] Dedicated local history tab (`nyra://history`)
-- [x] Internal failed-load error page with explicit HTTP retry for local addresses
-- [ ] Devtools docked in the same page
-- [ ] Dynamic favorites system  
-- [ ] Add custom new tab page background  
-- [ ] Add privacy toggle (JS / cookies)  
-- [x] Add multiple tab support  
-- [x] Add close-tab button
-- [ ] About page (`nyra://about`)
+```bash
+npm start
+```
 
----
+Run Nyra in development mode.
 
-## 🔒 Privacy & Security
+```bash
+npm run lint
+```
 
-Nyra currently keeps its privacy model intentionally small and explicit:
+Run syntax checks for main, preload, renderer, helpers and tests.
 
-- Bare domains open with `https://` by default.
-- `nyra://settings` can disable HTTPS-first behavior for local/testing workflows.
-- Web popups are blocked instead of being opened automatically.
-- Site permission requests are denied by default until Nyra has user-facing permission controls.
-- Only `mailto:` and `tel:` are opened through the operating system as external protocols.
-- Unsafe typed schemes such as `javascript:alert(1)` are treated as search text, not navigation.
-- Failed HTTPS loads for `localhost` or private LAN IPs or IPv4 addresses can be retried with HTTP only after clicking the explicit retry button.
+```bash
+npm test
+```
 
-Persistent state is stored as `nyra-state.json` in Electron's `userData` directory. It currently contains settings, saved session tabs, bookmarks, and recent history.
+Run the local test suite.
 
-Got ideas? Feel free to suggest features or improvements!
+```bash
+npm run dist
+```
+
+Build Windows installer and portable artifacts.
+
+```bash
+npm run dist:linux
+```
+
+Build the Linux `tar.gz` package.
+
+```bash
+npm run dist:linux:full
+```
+
+Build Linux `AppImage`, `deb` and `tar.gz` artifacts.
 
 ---
 
-## 🤝 Contributing
+## Release Workflow
 
-Contributions are welcome! Here's how you can help:
+Nyra uses GitHub Releases for distribution and updater metadata.
+
+Typical release flow:
+
+1. Finish and commit the feature/fix.
+2. Bump the version only when a release is actually being prepared.
+3. Run `npm run lint`.
+4. Run `npm test`.
+5. Run `npm run dist`.
+6. Commit the version bump.
+7. Create a tag such as `v1.6.2`.
+8. Create a GitHub Release and upload:
+   - `NyraSetup.exe`
+   - `NyraSetup.exe.blockmap`
+   - `latest.yml`
+   - optionally `Nyra.exe`
+
+Versioning is pragmatic semantic versioning:
+
+- Patch: bugfixes, polish and small safe features.
+- Minor: larger user-facing feature packs.
+- Major: breaking changes or major architecture/data changes.
+
+---
+
+## Storage
+
+Nyra stores browser state in Electron's `userData` directory.
+
+Main state file:
+
+- `nyra-state.json`
+
+It contains settings, session tabs, bookmarks, downloads, permissions, history, extensions metadata and other local browser state.
+
+Passwords are stored separately:
+
+- `passwords.json`
+
+Passwords are encrypted with Electron `safeStorage` when OS encryption is available. Nyra backs up corrupt state/password files before recreating clean defaults.
+
+---
+
+## Privacy Notes
+
+Nyra is local-first:
+
+- No account system.
+- No cloud sync.
+- No telemetry implementation in this repository.
+- No password server.
+- No remote Node access from websites.
+
+Some normal browser data still exists locally, such as cookies, local storage, downloads history, saved passwords and browsing history, depending on user behavior and settings.
+
+---
+
+## Roadmap
+
+High-priority areas still worth improving:
+
+- More complete bookmarks bar controls.
+- More complete extensions support.
+- Reader mode.
+- More advanced diagnostics/task-manager style process information.
+- Better import/export for full Nyra user data.
+- More private-mode polish and audit coverage.
+- Stronger PDF handling if Electron/Chromium native PDF behavior proves unreliable.
+
+---
+
+## Contributing
+
+Contributions are welcome.
 
 1. Fork the repository.
-2. Create a new branch (`git checkout -b feature-name`).
-3. Commit your changes (`git commit -m 'Add some feature'`).
-4. Push to the branch (`git push origin feature-name`).
+2. Create a branch.
+3. Commit your changes.
+4. Push your branch.
 5. Open a pull request.
 
----
-
-## 📜 License
-
-This project is licensed under the MIT License.  
-Feel free to use, modify, and distribute — just give credit to the [author](https://github.com/zeyzers).
+Please keep changes focused and avoid mixing unrelated features in one PR.
 
 ---
 
-## 👤 Author
+## License
 
-Made with curiosity by [@zeyzers](https://github.com/zeyzers).  
-Feel free to reach out or explore my other projects!
+This project is licensed under the MIT License.
+
+---
+
+## Author
+
+Made with curiosity by [@zeyzers](https://github.com/zeyzers).
