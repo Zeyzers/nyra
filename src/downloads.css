@@ -45,6 +45,22 @@ body[data-theme="light"] {
   box-sizing: border-box;
 }
 
+.nyra-icon {
+  display: block;
+  height: 18px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.85;
+  width: 18px;
+}
+
+.nyra-icon path,
+.nyra-icon circle,
+.nyra-icon rect {
+  fill: none;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -141,13 +157,17 @@ button:disabled:hover {
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--border);
   border-radius: 9px;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.downloads-head {
+  border-radius: 9px 9px 0 0;
 }
 
 .downloads-head,
 .download-item {
   display: grid;
-  grid-template-columns: minmax(230px, 1.3fr) 130px 170px minmax(180px, 1fr) 210px;
+  grid-template-columns: minmax(230px, 1.3fr) 130px 170px minmax(180px, 1fr) 44px;
 }
 
 .downloads-head {
@@ -243,18 +263,60 @@ button:disabled:hover {
 }
 
 .download-actions {
+  justify-self: end;
+  position: relative;
+}
+
+.download-actions summary {
+  align-items: center;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 7px;
+  color: var(--control-text);
+  cursor: pointer;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
+  height: 32px;
+  justify-content: center;
+  list-style: none;
+  width: 34px;
 }
 
-.download-actions button {
-  height: 30px;
-  padding: 0 9px;
+.download-actions summary::-webkit-details-marker {
+  display: none;
 }
 
-.remove-download {
+.download-actions summary:hover,
+.download-actions[open] summary {
+  border-color: var(--accent);
+}
+
+.download-actions-menu {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  min-width: 170px;
+  padding: 6px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 5;
+}
+
+.download-actions-menu button {
+  border-color: transparent;
+  height: 34px;
+  text-align: left;
+  width: 100%;
+}
+
+.download-actions-menu button:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.download-actions-menu .danger {
   color: var(--accent);
 }
 

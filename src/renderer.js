@@ -102,6 +102,14 @@ window.addEventListener("DOMContentLoaded", async () => {
   const sideExtensionsBtn = document.getElementById("side-extensions");
   const sideSettingsBtn = document.getElementById("side-settings");
   const sidePrivateBtn = document.getElementById("side-private");
+  const spacesList = document.getElementById("spaces-list");
+  const newSpaceBtn = document.getElementById("new-space");
+  const spaceDialog = document.getElementById("space-dialog");
+  const spaceTemplates = document.getElementById("space-templates");
+  const spaceNameInput = document.getElementById("space-name");
+  const spaceColors = document.getElementById("space-colors");
+  const spaceCancelBtn = document.getElementById("space-cancel");
+  const spaceCreateBtn = document.getElementById("space-create");
   const tabsContainer = document.getElementById("tabs");
   const newTabBtn = document.getElementById("new-tab");
   const bookmarksBar = document.getElementById("bookmarks-bar");
@@ -134,6 +142,14 @@ window.addEventListener("DOMContentLoaded", async () => {
   let bookmarks = [];
   let downloads = [];
   let permissions = [];
+  let spaces = [{
+    id: "personal",
+    name: "Personal",
+    icon: "home",
+    color: "#4f8cff",
+    partition: "persist:nyra-space-personal",
+  }];
+  let currentSpaceId = "personal";
   let closedTabs = [];
   let pendingPermissionPrompt = null;
   let pendingPasswordPrompt = null;
@@ -146,6 +162,15 @@ window.addEventListener("DOMContentLoaded", async () => {
   let visibleCommands = [];
   let hasUnseenCompletedDownloads = false;
   let previousDownloadStates = new Map();
+  const spaceTemplatesConfig = [
+    { id: "work", name: "Work", icon: "briefcase", color: "#3b82f6" },
+    { id: "banking", name: "Banking", icon: "shield", color: "#22c55e" },
+    { id: "shopping", name: "Shopping", icon: "bookmark", color: "#f59e0b" },
+    { id: "gaming", name: "Gaming", icon: "spark", color: "#8b5cf6" },
+    { id: "custom", name: "Custom", icon: "circle", color: "#ff4f8b" },
+  ];
+  const spaceColorPresets = ["#4f8cff", "#ff4f8b", "#8b5cf6", "#22c55e", "#f59e0b", "#14b8a6"];
+  let pendingSpaceDraft = { ...spaceTemplatesConfig[0] };
 
   async function safeNyraCall(label, fallback, callback) {
     try {
@@ -191,6 +216,197 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  function spaceForId(id) {
+    return spaces.find((space) => space.id === id) || spaces[0] || {
+      id: "personal",
+      name: "Personal",
+      icon: "home",
+      color: "#4f8cff",
+      partition: "persist:nyra-space-personal",
+    };
+  }
+
+  function validSpaceId(id) {
+    const space = spaceForId(id);
+    return space.id;
+  }
+
+  function currentSpace() {
+    return spaceForId(currentSpaceId);
+  }
+
+  function applyCurrentSpaceVisuals() {
+    const space = currentSpace();
+    document.documentElement.style.setProperty("--current-space-color", space.color || "var(--accent)");
+  }
+
+  function isTabVisibleInCurrentSpace(tab) {
+    return Boolean(tab && (tab.private || tab.spaceId === currentSpaceId));
+  }
+
+  function visibleTabsInCurrentSpace() {
+    return tabs.filter(isTabVisibleInCurrentSpace);
+  }
+
+  function applySpaces(nextSpaces) {
+    const previousActiveTabId = activeTabId;
+    const incomingSpaces = Array.isArray(nextSpaces) && nextSpaces.length ? nextSpaces : spaces;
+    const incomingIds = new Set(incomingSpaces.map((space) => space.id));
+    const removedTabs = tabs
+      .filter((tab) => !tab.private && !incomingIds.has(tab.spaceId))
+      .map((tab) => ({
+        id: tab.id,
+        wasActive: tab.id === activeTabId,
+        snapshot: currentPageSnapshot(tab),
+      }));
+
+    spaces = incomingSpaces;
+    currentSpaceId = validSpaceId(currentSpaceId);
+    removedTabs.forEach(({ id }) => {
+      const index = tabs.findIndex((tab) => tab.id === id);
+      if (index === -1) return;
+      tabs[index].webview.remove();
+      tabs[index].crashView?.remove();
+      tabs.splice(index, 1);
+    });
+    removedTabs.forEach(({ snapshot, wasActive }) => {
+      if (!snapshot) return;
+      createTab(snapshot.url, {
+        tab: { ...snapshot, spaceId: "personal" },
+        spaceId: "personal",
+        save: false,
+      });
+      if (!wasActive && previousActiveTabId) {
+        const previousActive = tabs.find((tab) => tab.id === previousActiveTabId);
+        if (previousActive) switchToTab(previousActive.id);
+      }
+    });
+    applyCurrentSpaceVisuals();
+    renderSpacesList();
+    updateTabsUI();
+    updateCurrentPageStorage();
+  }
+
+  function renderSpacesList() {
+    if (!spacesList) return;
+
+    spacesList.innerHTML = "";
+    spaces.forEach((space) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "space-item";
+      button.classList.toggle("active", space.id === currentSpaceId);
+      button.dataset.spaceId = space.id;
+      button.title = `${space.name} Space`;
+      button.dataset.tooltip = space.name;
+      button.style.setProperty("--space-color", space.color || "#4f8cff");
+
+      const marker = document.createElement("span");
+      marker.className = "space-marker";
+      setIcon(marker, space.icon || "circle");
+
+      const label = document.createElement("span");
+      label.className = "side-label";
+      label.textContent = space.name;
+
+      button.append(marker, label);
+      button.addEventListener("click", () => switchSpace(space.id));
+      spacesList.appendChild(button);
+    });
+  }
+
+  function switchSpace(spaceId) {
+    currentSpaceId = validSpaceId(spaceId);
+    applyCurrentSpaceVisuals();
+    const visibleTabs = visibleTabsInCurrentSpace();
+    const activeTab = getActiveTab();
+    if (!activeTab || !isTabVisibleInCurrentSpace(activeTab)) {
+      if (visibleTabs[0]) {
+        switchToTab(visibleTabs[0].id);
+      } else {
+        createTab(defaultNewTabUrl(), { spaceId: currentSpaceId });
+      }
+      return;
+    }
+
+    renderSpacesList();
+    updateTabsUI();
+    updateSideNav();
+    updateCurrentPageStorage();
+  }
+
+  function setSpaceDraft(template) {
+    pendingSpaceDraft = { ...template };
+    if (spaceNameInput) spaceNameInput.value = template.name === "Custom" ? "" : template.name;
+    renderSpacePicker();
+  }
+
+  function renderSpacePicker() {
+    if (spaceTemplates) {
+      spaceTemplates.innerHTML = "";
+      spaceTemplatesConfig.forEach((template) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "space-template";
+        button.classList.toggle("active", pendingSpaceDraft.id === template.id);
+        button.style.setProperty("--space-color", template.color);
+        const icon = document.createElement("span");
+        setIcon(icon, template.icon);
+        const label = document.createElement("span");
+        label.textContent = template.name;
+        button.append(icon, label);
+        button.addEventListener("click", () => setSpaceDraft(template));
+        spaceTemplates.appendChild(button);
+      });
+    }
+
+    if (spaceColors) {
+      spaceColors.innerHTML = "";
+      spaceColorPresets.forEach((color) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "space-color";
+        button.classList.toggle("active", pendingSpaceDraft.color === color);
+        button.style.backgroundColor = color;
+        button.title = color;
+        button.addEventListener("click", () => {
+          pendingSpaceDraft.color = color;
+          renderSpacePicker();
+        });
+        spaceColors.appendChild(button);
+      });
+    }
+  }
+
+  function openSpaceDialog() {
+    if (!spaceDialog) return;
+    setSpaceDraft(spaceTemplatesConfig[0]);
+    spaceDialog.showModal();
+    window.setTimeout(() => spaceNameInput?.focus(), 0);
+  }
+
+  async function createSpaceFromDialog() {
+    if (!window.nyra) return;
+    const name = (spaceNameInput?.value || pendingSpaceDraft.name || "New Space").trim();
+    if (!name) {
+      spaceNameInput?.focus();
+      return;
+    }
+
+    const beforeIds = new Set(spaces.map((space) => space.id));
+    spaces = await window.nyra.createSpace({
+      name,
+      id: pendingSpaceDraft.id === "custom" ? name : pendingSpaceDraft.id,
+      icon: pendingSpaceDraft.icon,
+      color: pendingSpaceDraft.color,
+    });
+    const created = spaces.find((space) => !beforeIds.has(space.id));
+    currentSpaceId = validSpaceId(created?.id || currentSpaceId);
+    renderSpacesList();
+    spaceDialog?.close();
+    switchSpace(currentSpaceId);
+  }
+
   if (window.nyra) {
     safeMode = await safeNyraCall("isSafeMode", false, () => window.nyra.isSafeMode());
     applySettings(await safeNyraCall("getSettings", DEFAULT_SETTINGS, () => window.nyra.getSettings()));
@@ -202,6 +418,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     permissions = safeMode
       ? []
       : await safeNyraCall("getPermissions", [], () => window.nyra.getPermissions());
+    applySpaces(await safeNyraCall("getSpaces", spaces, () => window.nyra.getSpaces()));
     renderBookmarksBar();
 
     window.nyra.onSettingsChanged((nextSettings) => {
@@ -212,8 +429,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     window.nyra.onStateReset((state) => {
       applySettings((state && state.settings) || DEFAULT_SETTINGS);
       bookmarks = (state && state.bookmarks) || [];
+      applySpaces((state && state.spaces) || spaces);
       updateBookmarkButton();
       renderBookmarksBar();
+    });
+
+    window.nyra.onSpacesChanged((nextSpaces) => {
+      applySpaces(nextSpaces);
+      scheduleSessionSave();
     });
 
     window.nyra.onBookmarksChanged((nextBookmarks) => {
@@ -237,8 +460,15 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  function routeToSrc(route) {
-    return new URL(virtualRoutes[route], window.location.href).toString();
+  function routeToSrc(route, tab) {
+    const target = new URL(virtualRoutes[route], window.location.href);
+    if (route === "nyra://newtab" && tab && !tab.private) {
+      const space = spaceForId(tab.spaceId);
+      target.searchParams.set("space", space.name);
+      target.searchParams.set("spaceColor", space.color || "#4f8cff");
+      target.searchParams.set("spaceId", space.id);
+    }
+    return target.toString();
   }
 
   // Resolve virtual URL to real URL
@@ -254,8 +484,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
 
     for (const [virtual, real] of Object.entries(virtualRoutes)) {
-      const fullPath = new URL(real, window.location.href).toString();
-      if (realUrl === fullPath) {
+      const fullUrl = new URL(real, window.location.href);
+      let parsedRealUrl;
+      try {
+        parsedRealUrl = new URL(realUrl);
+      } catch {
+        parsedRealUrl = null;
+      }
+      if (parsedRealUrl && parsedRealUrl.origin === fullUrl.origin && parsedRealUrl.pathname === fullUrl.pathname) {
         // Special case: don't show anything for newtab
         if (virtual === "nyra://newtab") return "";
         return virtual;
@@ -305,14 +541,36 @@ window.addEventListener("DOMContentLoaded", async () => {
         pinned: Boolean(tab.pinned),
         muted: Boolean(tab.muted),
         favicon: tab.favicon || "",
+        spaceId: validSpaceId(tab.spaceId),
       }))
       .filter((tab) => isRestorableUrl(tab.url));
 
     if (sessionTabs.length > 1 && sessionTabs.every((tab) => tab.url === "nyra://newtab")) {
-      return [sessionTabs[0]];
+      const seenSpaces = new Set();
+      return sessionTabs.filter((tab) => {
+        if (seenSpaces.has(tab.spaceId)) return false;
+        seenSpaces.add(tab.spaceId);
+        return true;
+      });
     }
 
     return sessionTabs;
+  }
+
+  function getSessionState() {
+    const sessionTabs = getSessionTabs();
+    const activeTab = getActiveTab();
+    const activeSnapshotIndex = activeTab && !activeTab.private
+      ? sessionTabs.findIndex((tab) => (
+        tab.url === displayUrlForSession(activeTab.webview.src) &&
+        tab.spaceId === activeTab.spaceId
+      ))
+      : 0;
+    return {
+      tabs: sessionTabs,
+      activeSpaceId: validSpaceId(currentSpaceId),
+      activeTabIndex: Math.max(0, activeSnapshotIndex),
+    };
   }
 
   function currentPageSnapshot(tab = getActiveTab()) {
@@ -323,6 +581,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       pinned: Boolean(tab.pinned),
       muted: Boolean(tab.muted),
       favicon: tab.favicon || "",
+      spaceId: validSpaceId(tab.spaceId),
     };
   }
 
@@ -331,7 +590,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     clearTimeout(sessionSaveTimer);
     sessionSaveTimer = setTimeout(() => {
-      window.nyra.saveSession(getSessionTabs()).catch(() => {});
+      window.nyra.saveSession(getSessionState()).catch(() => {});
     }, 150);
   }
 
@@ -339,20 +598,20 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (!window.nyra || startupRestorePending) return;
 
     clearTimeout(sessionSaveTimer);
-    const sessionTabs = getSessionTabs();
+    const sessionState = getSessionState();
     if (typeof window.nyra.saveSessionSync === "function") {
       try {
-        window.nyra.saveSessionSync(sessionTabs);
+        window.nyra.saveSessionSync(sessionState);
         return;
       } catch {
         // Fall back to async save below.
       }
     }
-    window.nyra.saveSession(sessionTabs).catch(() => {});
+    window.nyra.saveSession(sessionState).catch(() => {});
   }
 
-  function srcForUrl(url) {
-    return virtualRoutes[url] ? routeToSrc(url) : url;
+  function srcForUrl(url, tab) {
+    return virtualRoutes[url] ? routeToSrc(url, tab) : url;
   }
 
   function chromeLikeUserAgent() {
@@ -365,7 +624,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (!tab || !tab.webview) return;
 
     clearTabCrash(tab);
-    tab.webview.src = srcForUrl(url);
+    tab.webview.src = srcForUrl(url, tab);
   }
 
   function errorPageSrc(failedUrl, errorCode, errorDescription) {
@@ -409,6 +668,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         url: getActiveDisplayUrl(),
         title: tab.title || getActiveDisplayUrl(),
         favicon: tab.favicon || "",
+        spaceId: validSpaceId(tab.spaceId),
+        spaceName: spaceForId(tab.spaceId).name,
       }));
     } catch {
       // Local helper state should never block navigation.
@@ -724,8 +985,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  function permissionSummaryForDomain(domain) {
-    const relevant = permissions.filter((item) => item.domain === domain);
+  function permissionSummaryForDomain(domain, spaceId = currentSpaceId) {
+    const relevant = permissions.filter((item) => (
+      item.domain === domain && validSpaceId(item.spaceId) === validSpaceId(spaceId)
+    ));
     if (!domain) return "Local Nyra page";
     if (!relevant.length) return "Ask when needed";
     return relevant.map((item) => `${item.permission}: ${item.value}`).join(", ");
@@ -735,9 +998,11 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (!siteInfoMenu || siteInfoMenu.hidden) return;
 
     const url = getActiveDisplayUrl();
+    const activeTab = getActiveTab();
+    const activeSpace = activeTab && !activeTab.private ? spaceForId(activeTab.spaceId) : null;
     const domain = domainForUrl(url);
     const siteSummary = window.nyra && window.nyra.getSiteSummary
-      ? await window.nyra.getSiteSummary(url).catch(() => ({ cookies: 0, savedLogins: 0 }))
+      ? await window.nyra.getSiteSummary(url, activeSpace?.id).catch(() => ({ cookies: 0, savedLogins: 0 }))
       : { cookies: 0, savedLogins: 0 };
     if (!siteInfoMenu || siteInfoMenu.hidden) return;
     let protocol = "internal";
@@ -758,7 +1023,8 @@ window.addEventListener("DOMContentLoaded", async () => {
       <dl>
         <dt>URL</dt><dd>${url || "nyra://newtab"}</dd>
         <dt>Protocol</dt><dd>${protocol}</dd>
-        <dt>Permissions</dt><dd>${permissionSummaryForDomain(domain)}</dd>
+        <dt>Space</dt><dd>${activeSpace ? `${activeSpace.name} Space` : "Private"}</dd>
+        <dt>Permissions</dt><dd>${permissionSummaryForDomain(domain, activeSpace?.id)}</dd>
         <dt>Saved logins</dt><dd>${siteSummary.savedLogins || 0}</dd>
         <dt>Cookies</dt><dd>${siteSummary.cookies || 0}</dd>
         <dt>External links</dt><dd>mailto: and tel: only</dd>
@@ -773,12 +1039,12 @@ window.addEventListener("DOMContentLoaded", async () => {
     `;
 
     document.getElementById("clear-site-permissions")?.addEventListener("click", async () => {
-      permissions = await window.nyra.removePermission(domain);
+      permissions = await window.nyra.removePermission(domain, undefined, activeSpace?.id);
       renderSiteInfoMenu();
     });
     document.getElementById("clear-site-data")?.addEventListener("click", async () => {
       if (window.nyra && window.nyra.clearSiteData) {
-        await window.nyra.clearSiteData(domain);
+        await window.nyra.clearSiteData(domain, activeSpace?.id);
         renderSiteInfoMenu();
       }
     });
@@ -809,7 +1075,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (!permissionDialog || !prompt) return;
     pendingPermissionPrompt = prompt;
     permissionTitle.textContent = "Permission request";
-    permissionMessage.textContent = `${prompt.domain} wants to use ${prompt.permission}.`;
+    permissionMessage.textContent = `${prompt.domain} wants to use ${prompt.permission} in ${spaceForId(prompt.spaceId).name} Space.`;
     permissionDialog.showModal();
   }
 
@@ -884,7 +1150,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   function handlePasswordForms(tab, payload) {
     if (!tab || tab.private || !window.nyra || !window.nyra.getLoginsForUrl || !payload?.url) return;
 
-    window.nyra.getLoginsForUrl(payload.url)
+    window.nyra.getLoginsForUrl(payload.url, tab.spaceId)
       .then((result) => {
         if (!result || !Array.isArray(result.logins) || !result.logins.length || tab.private) return;
         const [firstLogin] = result.logins;
@@ -929,7 +1195,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     const domain = domainForUrl(payload.url) || payload.url;
     const classification = window.nyra.classifyLogin
-      ? await window.nyra.classifyLogin(payload).catch(() => ({ action: "ignore" }))
+      ? await window.nyra.classifyLogin({ ...payload, spaceId: tab.spaceId }).catch(() => ({ action: "ignore" }))
       : { action: "ignore" };
     if (!classification || ["ignore", "unchanged", "unavailable", "never"].includes(classification.action)) return;
 
@@ -945,8 +1211,9 @@ window.addEventListener("DOMContentLoaded", async () => {
         url: payload.url,
         username: payload.username,
         password: payload.password,
+        spaceId: tab.spaceId,
       }).catch(() => {}),
-      onNever: () => window.nyra.neverSaveLogin(payload.url).catch(() => {}),
+      onNever: () => window.nyra.neverSaveLogin(payload.url, tab.spaceId).catch(() => {}),
     });
   }
 
@@ -1156,7 +1423,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (tab) {
       navigateTab(tab, defaultNewTabUrl());
     } else {
-      createTab();
+      createTab(defaultNewTabUrl(), { spaceId: currentSpaceId });
     }
   }
 
@@ -1218,6 +1485,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   function createTab(url = defaultNewTabUrl(), options = {}) {
     const id = crypto.randomUUID();
     const metadata = options.tab || {};
+    const privateTab = Boolean(options.private);
+    const spaceId = privateTab
+      ? ""
+      : validSpaceId(metadata.spaceId || options.spaceId || currentSpaceId);
     const tab = {
       id,
       title: metadata.title || (url === "nyra://history"
@@ -1240,7 +1511,8 @@ window.addEventListener("DOMContentLoaded", async () => {
       pinned: Boolean(metadata.pinned),
       muted: Boolean(metadata.muted),
       favicon: metadata.favicon || "",
-      private: Boolean(options.private),
+      private: privateTab,
+      spaceId,
       zoomFactor: Number(metadata.zoomFactor) || settings.defaultZoom || 1,
       passwordPromptDismissedOrigins: new Set(),
       passwordPromptOrigin: "",
@@ -1252,6 +1524,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     tab.webview.setAttribute("allowfullscreen", "true");
     if (tab.private) {
       tab.webview.setAttribute("partition", `nyra-private-${id}`);
+    } else {
+      tab.webview.setAttribute("partition", spaceForId(spaceId).partition);
     }
     tab.webview.style.display = "none";
     if (tab.muted && typeof tab.webview.setAudioMuted === "function") {
@@ -1389,6 +1663,12 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Switch to a tab by ID
   function switchToTab(id) {
+    const activeTab = tabs.find((t) => t.id === id);
+    if (activeTab && !activeTab.private) {
+      currentSpaceId = validSpaceId(activeTab.spaceId);
+      applyCurrentSpaceVisuals();
+    }
+
     tabs.forEach((tab) => {
       const isActive = tab.id === id;
       tab.webview.style.display = isActive && !tab.crashed ? "flex" : "none";
@@ -1400,7 +1680,6 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
     activeTabId = id;
 
-    const activeTab = tabs.find((t) => t.id === id);
     if (activeTab) {
       urlInput.value = resolveVirtualUrl(activeTab.webview.src);
       document.title = activeTab.title;
@@ -1421,13 +1700,14 @@ window.addEventListener("DOMContentLoaded", async () => {
   function updateTabsUI() {
     tabsContainer.innerHTML = "";
 
-    tabs.forEach((tab) => {
+    visibleTabsInCurrentSpace().forEach((tab) => {
       const tabBtn = document.createElement("div");
       tabBtn.className = "tab" + (tab.id === activeTabId ? " active" : "");
       tabBtn.classList.toggle("pinned", Boolean(tab.pinned));
       tabBtn.classList.toggle("loading", Boolean(tab.loading));
       tabBtn.classList.toggle("muted", Boolean(tab.muted));
       tabBtn.classList.toggle("private", Boolean(tab.private));
+      tabBtn.style.setProperty("--tab-space-color", tab.private ? "var(--accent)" : spaceForId(tab.spaceId).color || "var(--accent)");
       tabBtn.draggable = true;
       tabBtn.dataset.tabId = tab.id;
 
@@ -1506,7 +1786,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     scheduleSessionSave();
   }
 
-  function duplicateTab(id) {
+  function duplicateTab(id, targetSpaceId) {
     const tab = tabs.find((item) => item.id === id);
     if (!tab) return;
     createTab(displayUrlForSession(tab.webview.src), {
@@ -1514,8 +1794,30 @@ window.addEventListener("DOMContentLoaded", async () => {
         title: tab.title,
         muted: tab.muted,
         favicon: tab.favicon,
+        spaceId: validSpaceId(targetSpaceId || tab.spaceId),
       },
+      private: tab.private,
+      spaceId: validSpaceId(targetSpaceId || tab.spaceId),
     });
+  }
+
+  function moveTabToSpace(id, targetSpaceId) {
+    const tab = tabs.find((item) => item.id === id);
+    const nextSpaceId = validSpaceId(targetSpaceId);
+    if (!tab || tab.private || tab.spaceId === nextSpaceId) return;
+
+    const sourceIndex = tabs.findIndex((item) => item.id === id);
+    const snapshot = currentPageSnapshot(tab);
+    createTab(snapshot.url, {
+      tab: { ...snapshot, spaceId: nextSpaceId },
+      spaceId: nextSpaceId,
+      save: false,
+    });
+    tab.webview.remove();
+    tab.crashView?.remove();
+    tabs.splice(sourceIndex, 1);
+    scheduleSessionSave();
+    updateTabsUI();
   }
 
   function setTabMuted(id, muted) {
@@ -1562,9 +1864,32 @@ window.addEventListener("DOMContentLoaded", async () => {
       tabContextMenu.appendChild(button);
     });
 
-    tabContextMenu.style.left = `${Math.min(x, window.innerWidth - 190)}px`;
-    tabContextMenu.style.top = `${Math.min(y, window.innerHeight - 190)}px`;
+    if (!tab.private && spaces.length > 1) {
+      spaces.filter((space) => space.id !== tab.spaceId).forEach((space) => {
+        const moveButton = document.createElement("button");
+        moveButton.type = "button";
+        moveButton.textContent = `Move to ${space.name}`;
+        moveButton.addEventListener("click", () => {
+          tabContextMenu.hidden = true;
+          moveTabToSpace(id, space.id);
+        });
+        tabContextMenu.appendChild(moveButton);
+
+        const duplicateButton = document.createElement("button");
+        duplicateButton.type = "button";
+        duplicateButton.textContent = `Duplicate in ${space.name}`;
+        duplicateButton.addEventListener("click", () => {
+          tabContextMenu.hidden = true;
+          duplicateTab(id, space.id);
+        });
+        tabContextMenu.appendChild(duplicateButton);
+      });
+    }
+
     tabContextMenu.hidden = false;
+    const menuRect = tabContextMenu.getBoundingClientRect();
+    tabContextMenu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - menuRect.width - 8))}px`;
+    tabContextMenu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - menuRect.height - 8))}px`;
   }
 
   // Back and forward button functionality
@@ -1637,7 +1962,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   // Add new tab on + click
-  newTabBtn.onclick = () => createTab();
+  newTabBtn.onclick = () => createTab(defaultNewTabUrl(), { spaceId: currentSpaceId });
   historyBtn.onclick = () => openHistoryTab();
   settingsBtn.onclick = () => openSettingsTab();
   if (downloadBtn) {
@@ -1671,6 +1996,21 @@ window.addEventListener("DOMContentLoaded", async () => {
   if (sidePrivateBtn) {
     sidePrivateBtn.onclick = () => openPrivateTab();
   }
+  if (newSpaceBtn) {
+    newSpaceBtn.onclick = () => openSpaceDialog();
+  }
+  if (spaceCancelBtn) {
+    spaceCancelBtn.onclick = () => spaceDialog?.close();
+  }
+  if (spaceCreateBtn) {
+    spaceCreateBtn.onclick = () => createSpaceFromDialog();
+  }
+  spaceNameInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      createSpaceFromDialog();
+    }
+  });
 
   document.addEventListener("click", (event) => {
     if (!downloadsMenu || downloadsMenu.hidden) return;
@@ -1743,13 +2083,19 @@ window.addEventListener("DOMContentLoaded", async () => {
     // If it was the last tab, create a new one
     if (tabs.length === 0) {
       activeTabId = null;
-      createTab();
+      createTab(defaultNewTabUrl(), { spaceId: currentSpaceId });
       return;
     }
 
     // If the closed tab was active, switch to the next one
     if (activeTabId === id) {
-      const fallback = tabs[index - 1] || tabs[index] || tabs[0];
+      const visibleFallbacks = visibleTabsInCurrentSpace();
+      if (!visibleFallbacks.length) {
+        activeTabId = null;
+        createTab(defaultNewTabUrl(), { spaceId: currentSpaceId });
+        return;
+      }
+      const fallback = visibleFallbacks[index - 1] || visibleFallbacks[index] || visibleFallbacks[0];
       switchToTab(fallback.id);
     }
 
@@ -1759,16 +2105,22 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   async function restoreInitialTabs({ replaceStartupTab = false } = {}) {
     let restoredTabs = [];
+    let restoredSession = { tabs: [], activeSpaceId: "personal", activeTabIndex: 0 };
 
     if (window.nyra && settings.restoreSession && !safeMode) {
-      const session = await safeNyraCall("loadSession", { tabs: [] }, () => window.nyra.loadSession());
-      restoredTabs = Array.isArray(session.tabs)
-        ? session.tabs.filter((tab) => tab && isRestorableUrl(tab.url))
+      restoredSession = await safeNyraCall("loadSession", restoredSession, () => window.nyra.loadSession());
+      restoredTabs = Array.isArray(restoredSession.tabs)
+        ? restoredSession.tabs.filter((tab) => tab && isRestorableUrl(tab.url))
         : [];
     }
 
     if (restoredTabs.length > 1 && restoredTabs.every((tab) => tab.url === "nyra://newtab")) {
-      restoredTabs = [restoredTabs[0]];
+      const seenSpaces = new Set();
+      restoredTabs = restoredTabs.filter((tab) => {
+        if (seenSpaces.has(tab.spaceId)) return false;
+        seenSpaces.add(tab.spaceId);
+        return true;
+      });
     }
 
     if (restoredTabs.length === 0) {
@@ -1787,6 +2139,13 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
 
     restoredTabs.forEach((tab) => createTab(tab.url, { save: false, tab }));
+    currentSpaceId = validSpaceId(restoredSession.activeSpaceId);
+    const targetTab = tabs[Math.min(
+      Math.max(0, Number(restoredSession.activeTabIndex) || 0),
+      Math.max(0, tabs.length - 1)
+    )];
+    const activeSpaceTab = tabs.find((tab) => !tab.private && tab.spaceId === currentSpaceId);
+    switchToTab((targetTab && targetTab.spaceId === currentSpaceId ? targetTab : activeSpaceTab || tabs[0]).id);
     startupRestorePending = false;
     scheduleSessionSave();
   }

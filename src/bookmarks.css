@@ -103,9 +103,9 @@ header p {
 .bookmark-actions {
   display: grid;
   gap: 8px;
-  grid-template-columns: minmax(180px, 1fr) auto auto auto auto auto;
+  grid-template-columns: minmax(200px, 1fr) 150px auto auto;
   justify-self: end;
-  width: min(760px, 100%);
+  width: min(680px, 100%);
 }
 
 input,
@@ -136,6 +136,71 @@ button,
 button:hover,
 .bookmark-row-actions a:hover {
   border-color: var(--accent);
+}
+
+.action-menu {
+  position: relative;
+}
+
+.action-menu summary {
+  align-items: center;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  color: var(--control-text);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 620;
+  gap: 7px;
+  height: 36px;
+  list-style: none;
+  padding: 0 12px;
+}
+
+.action-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.action-menu summary:hover,
+.action-menu[open] summary {
+  border-color: var(--accent);
+}
+
+.action-menu summary .nyra-icon {
+  height: 16px;
+  width: 16px;
+}
+
+.action-menu-popover {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  left: 0;
+  min-width: 190px;
+  padding: 6px;
+  position: absolute;
+  top: calc(100% + 6px);
+  z-index: 10;
+}
+
+.action-menu.align-right .action-menu-popover {
+  left: auto;
+  right: 0;
+}
+
+.action-menu-popover button {
+  border-color: transparent;
+  height: 34px;
+  text-align: left;
+  width: 100%;
+}
+
+.action-menu-popover button:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
 }
 
 .bookmarks-panel {

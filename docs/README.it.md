@@ -16,7 +16,7 @@ Nyra è un browser desktop minimale e personale costruito con Electron.
 
 ## Stato
 
-Versione attuale: **1.6.2**
+Versione attuale: **1.7.0**
 
 Nyra è in sviluppo attivo. Windows è il target principale al momento. Esistono script di packaging per Linux, ma Windows è la piattaforma su cui feature e release vengono validate per prima.
 
@@ -38,6 +38,42 @@ Ho creato Nyra per capire come funzionano i browser desktop, sperimentare con El
 
 ---
 
+## Screenshot
+
+Questi sono screenshot reali della build di sviluppo Windows attuale.
+
+### Browser e Nuova scheda
+
+Inizia con preferiti, siti recenti e pagine ripristinabili dello Space corrente.
+
+![Shell del browser Nyra, sidebar Spaces e pagina Nuova scheda](./assets/screenshots/nyra-new-tab.png)
+
+### Nyra Spaces
+
+Crea spazi separati per lavoro, navigazione personale, shopping o qualsiasi altra parte della tua vita digitale.
+
+![Creazione di uno Space isolato in Nyra](./assets/screenshots/nyra-spaces.png)
+
+### Preferiti
+
+Organizza, cerca, modifica e apri i siti salvati dal gestore preferiti integrato.
+
+![Gestore preferiti di Nyra con cartelle e siti salvati](./assets/screenshots/nyra-bookmarks.png)
+
+### Download
+
+Controlla download persistenti, avanzamento, file mancanti e azioni sui file da un'unica pagina.
+
+![Pagina Download di Nyra con elementi completati, mancanti e non riusciti](./assets/screenshots/nyra-downloads.png)
+
+### Privacy e sicurezza
+
+Gestisci navigazione HTTPS-first, password cifrate localmente, dati dei siti e permessi per ogni Space.
+
+![Impostazioni Privacy e sicurezza di Nyra](./assets/screenshots/nyra-settings-privacy.png)
+
+---
+
 ## Funzionalità
 
 ### Shell del browser
@@ -53,6 +89,16 @@ Ho creato Nyra per capire come funzionano i browser desktop, sperimentare con El
 - Supporto fullscreen per siti come YouTube.
 - Animazione di avvio e icona nativa Windows.
 - Impostazione hardware acceleration applicata al riavvio.
+
+### Spaces
+
+- Vite digitali separate con cookie, login e dati dei siti isolati.
+- Ogni tab normale appartiene a uno Space basato su una partizione Electron persistente dedicata.
+- Creazione di Spaces con nome, icona e colore distintivi.
+- Cambio Space dalla sidebar con visualizzazione delle sole tab associate.
+- Spostamento o duplicazione delle tab tra Spaces.
+- Il ripristino sessione conserva lo Space di ogni tab.
+- Password, permessi e dati dei siti restano associati allo Space corretto.
 
 ### Pagine interne
 
@@ -204,7 +250,7 @@ Flusso tipico:
 4. Esegui `npm test`.
 5. Esegui `npm run dist`.
 6. Committa il bump versione.
-7. Crea un tag come `v1.6.2`.
+7. Crea un tag come `v1.7.0`.
 8. Crea una GitHub Release e carica:
    - `NyraSetup.exe`
    - `NyraSetup.exe.blockmap`

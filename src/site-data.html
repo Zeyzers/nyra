@@ -75,9 +75,9 @@
             <span class="site-icon" data-icon="globe"></span>
             <span>
               <strong>${escapeHtml(item.domain)}</strong>
-              <small>${Number(item.cookies || 0)} cookie${Number(item.cookies || 0) === 1 ? "" : "s"} saved</small>
+              <small>${Number(item.cookies || 0)} cookie${Number(item.cookies || 0) === 1 ? "" : "s"} saved · ${escapeHtml(item.spaceName || "Personal")} Space</small>
             </span>
-            <button class="clear-domain" type="button" data-domain="${escapeHtml(item.domain)}">Clear</button>
+            <button class="clear-domain" type="button" data-domain="${escapeHtml(item.domain)}" data-space-id="${escapeHtml(item.spaceId || "personal")}">Clear</button>
           </article>
         `).join("");
         window.NyraIcons?.mount(list);
@@ -85,7 +85,7 @@
         document.querySelectorAll(".clear-domain").forEach((button) => {
           button.addEventListener("click", async () => {
             setStatus(`Clearing ${button.dataset.domain}...`);
-            siteData = await window.nyra.clearSiteData(button.dataset.domain);
+            siteData = await window.nyra.clearSiteData(button.dataset.domain, button.dataset.spaceId);
             render();
             setStatus("Site data cleared.");
           });

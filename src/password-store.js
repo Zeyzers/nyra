@@ -3,6 +3,17 @@ const path = require('path');
 
 const MAX_PASSWORD_ENTRIES = 500;
 const WEB_PROTOCOLS = new Set(['http:', 'https:']);
+const PERSONAL_SPACE_ID = 'personal';
+
+function safeSpaceId(value) {
+  const normalized = String(value || PERSONAL_SPACE_ID)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 41);
+  return normalized || PERSONAL_SPACE_ID;
+}
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -65,6 +76,7 @@ function normalizeCredential(credential, now) {
     domain: typeof credential.domain === 'string' && credential.domain
       ? credential.domain.toLowerCase()
       : domainForUrl(origin),
+    spaceId: safeSpaceId(credential.spaceId),
     username,
     passwordEncrypted,
     createdAt: safeDate(credential.createdAt, now),
@@ -84,7 +96,7 @@ function normalizeStore(store, now = new Date().toISOString()) {
     .map((credential) => normalizeCredential(credential, now))
     .filter(Boolean)
     .forEach((credential) => {
-      const key = `${credential.origin}\n${credential.username.toLowerCase()}`;
+      const key = `${credential.spaceId}\n${credential.origin}\n${credential.username.toLowerCase()}`;
       const existing = deduped.get(key);
       if (!existing || String(credential.updatedAt) >= String(existing.updatedAt)) {
         deduped.set(key, credential);
@@ -92,11 +104,15 @@ function normalizeStore(store, now = new Date().toISOString()) {
     });
 
   return {
-    version: 2,
+    version: 3,
     neverSaveOrigins: Array.isArray(store && store.neverSaveOrigins)
-      ? Array.from(new Set(store.neverSaveOrigins
-        .map((origin) => originForUrl(origin))
-        .filter(Boolean)))
+      ? Array.from(new Map(store.neverSaveOrigins
+        .map((entry) => {
+          const origin = originForUrl(typeof entry === 'string' ? entry : entry && entry.origin);
+          const spaceId = safeSpaceId(entry && typeof entry === 'object' ? entry.spaceId : PERSONAL_SPACE_ID);
+          return origin ? [`${spaceId}\n${origin}`, { origin, spaceId }] : null;
+        })
+        .filter(Boolean)).values())
       : [],
     credentials: Array.from(deduped.values())
       .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
@@ -109,6 +125,7 @@ function safeListCredential(credential) {
     id: credential.id,
     origin: credential.origin,
     domain: credential.domain,
+    spaceId: credential.spaceId,
     username: credential.username,
     createdAt: credential.createdAt,
     updatedAt: credential.updatedAt
@@ -147,7 +164,7 @@ function createPasswordStore({ userDataDir, safeStorage, now = () => new Date().
   function readStore() {
     try {
       fs.mkdirSync(userDataDir, { recursive: true });
-      if (!fs.existsSync(filePath)) return { version: 2, neverSaveOrigins: [], credentials: [] };
+      if (!fs.existsSync(filePath)) return { version: 3, neverSaveOrigins: [], credentials: [] };
 
       const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
       const normalized = normalizeStore(parsed, now());
@@ -155,8 +172,8 @@ function createPasswordStore({ userDataDir, safeStorage, now = () => new Date().
       return normalized;
     } catch (error) {
       backupCorruptStore(error);
-      writeStore({ version: 2, credentials: [] });
-      return { version: 2, neverSaveOrigins: [], credentials: [] };
+      writeStore({ version: 3, neverSaveOrigins: [], credentials: [] });
+      return { version: 3, neverSaveOrigins: [], credentials: [] };
     }
   }
 
@@ -182,24 +199,28 @@ function createPasswordStore({ userDataDir, safeStorage, now = () => new Date().
     }
   }
 
-  function listLogins() {
+  function listLogins(spaceId) {
     const store = readStore();
+    const normalizedSpaceId = spaceId ? safeSpaceId(spaceId) : '';
     return {
       available: isEncryptionAvailable(),
       recovery: recoveryInfo ? { ...recoveryInfo } : null,
-      logins: store.credentials.map(safeListCredential),
+      logins: store.credentials
+        .filter((credential) => !normalizedSpaceId || credential.spaceId === normalizedSpaceId)
+        .map(safeListCredential),
       neverSaveOrigins: clone(store.neverSaveOrigins)
     };
   }
 
-  function findLoginsForUrl(url) {
+  function findLoginsForUrl(url, spaceId = PERSONAL_SPACE_ID) {
     const origin = originForUrl(url);
     if (!origin || !isEncryptionAvailable()) return { available: isEncryptionAvailable(), logins: [] };
+    const normalizedSpaceId = safeSpaceId(spaceId);
 
     return {
       available: true,
       logins: readStore().credentials
-        .filter((credential) => credential.origin === origin)
+        .filter((credential) => credential.origin === origin && credential.spaceId === normalizedSpaceId)
         .map(safeListCredential)
     };
   }
@@ -224,13 +245,14 @@ function createPasswordStore({ userDataDir, safeStorage, now = () => new Date().
     };
   }
 
-  function classifyLogin({ url, username, password }) {
+  function classifyLogin({ url, username, password, spaceId = PERSONAL_SPACE_ID }) {
     if (!webUrl(url) || !isEncryptionAvailable()) {
       return { action: 'unavailable', available: isEncryptionAvailable() };
     }
 
     const origin = originForUrl(url);
-    if (readStore().neverSaveOrigins.includes(origin)) {
+    const normalizedSpaceId = safeSpaceId(spaceId);
+    if (readStore().neverSaveOrigins.some((entry) => entry.origin === origin && entry.spaceId === normalizedSpaceId)) {
       return { action: 'never', available: true, origin };
     }
     const safeUsername = String(username || '').trim().slice(0, 320);
@@ -239,6 +261,7 @@ function createPasswordStore({ userDataDir, safeStorage, now = () => new Date().
 
     const existing = readStore().credentials.find((credential) => (
       credential.origin === origin &&
+      credential.spaceId === normalizedSpaceId &&
       credential.username.toLowerCase() === safeUsername.toLowerCase()
     ));
     if (!existing) {
@@ -253,8 +276,9 @@ function createPasswordStore({ userDataDir, safeStorage, now = () => new Date().
     return { action: 'update', available: true, login: safeListCredential(existing) };
   }
 
-  function saveLogin({ url, username, password }) {
-    const classification = classifyLogin({ url, username, password });
+  function saveLogin({ url, username, password, spaceId = PERSONAL_SPACE_ID }) {
+    const normalizedSpaceId = safeSpaceId(spaceId);
+    const classification = classifyLogin({ url, username, password, spaceId: normalizedSpaceId });
     if (classification.action === 'unavailable') return { ok: false, reason: 'encryption-unavailable' };
     if (classification.action === 'ignore') return { ok: false, reason: 'missing-credentials' };
     if (classification.action === 'unchanged') return { ok: true, action: 'unchanged', login: classification.login };
@@ -264,6 +288,7 @@ function createPasswordStore({ userDataDir, safeStorage, now = () => new Date().
     const store = readStore();
     const existing = store.credentials.find((credential) => (
       credential.origin === origin &&
+      credential.spaceId === normalizedSpaceId &&
       credential.username.toLowerCase() === safeUsername.toLowerCase()
     ));
     const savedAt = now();
@@ -271,14 +296,17 @@ function createPasswordStore({ userDataDir, safeStorage, now = () => new Date().
       id: existing ? existing.id : createId(),
       origin,
       domain: domainForUrl(origin),
+      spaceId: normalizedSpaceId,
       username: safeUsername,
       passwordEncrypted: encrypt(password),
       createdAt: existing ? existing.createdAt : savedAt,
       updatedAt: savedAt
     };
     const nextStore = writeStore({
-      version: 2,
-      neverSaveOrigins: store.neverSaveOrigins.filter((originItem) => originItem !== origin),
+      version: 3,
+      neverSaveOrigins: store.neverSaveOrigins.filter((entry) => (
+        entry.origin !== origin || entry.spaceId !== normalizedSpaceId
+      )),
       credentials: [
         nextCredential,
         ...store.credentials.filter((credential) => credential.id !== nextCredential.id)
@@ -297,28 +325,45 @@ function createPasswordStore({ userDataDir, safeStorage, now = () => new Date().
 
     const store = readStore();
     writeStore({
-      version: 2,
+      version: 3,
       neverSaveOrigins: store.neverSaveOrigins,
       credentials: store.credentials.filter((credential) => credential.id !== id)
     });
     return listLogins();
   }
 
-  function clearLogins() {
+  function clearLogins(spaceId) {
     const store = readStore();
-    writeStore({ version: 2, neverSaveOrigins: store.neverSaveOrigins, credentials: [] });
+    const normalizedSpaceId = spaceId ? safeSpaceId(spaceId) : '';
+    writeStore({
+      version: 3,
+      neverSaveOrigins: normalizedSpaceId
+        ? store.neverSaveOrigins.filter((entry) => entry.spaceId !== normalizedSpaceId)
+        : store.neverSaveOrigins,
+      credentials: normalizedSpaceId
+        ? store.credentials.filter((credential) => credential.spaceId !== normalizedSpaceId)
+        : []
+    });
     return listLogins();
   }
 
-  function neverSaveForUrl(url) {
+  function neverSaveForUrl(url, spaceId = PERSONAL_SPACE_ID) {
     const origin = originForUrl(url);
     if (!origin) return listLogins();
+    const normalizedSpaceId = safeSpaceId(spaceId);
 
     const store = readStore();
     writeStore({
-      version: 2,
-      neverSaveOrigins: [origin, ...store.neverSaveOrigins.filter((item) => item !== origin)],
-      credentials: store.credentials.filter((credential) => credential.origin !== origin)
+      version: 3,
+      neverSaveOrigins: [
+        { origin, spaceId: normalizedSpaceId },
+        ...store.neverSaveOrigins.filter((entry) => (
+          entry.origin !== origin || entry.spaceId !== normalizedSpaceId
+        ))
+      ],
+      credentials: store.credentials.filter((credential) => (
+        credential.origin !== origin || credential.spaceId !== normalizedSpaceId
+      ))
     });
     return listLogins();
   }

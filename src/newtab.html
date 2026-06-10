@@ -14,6 +14,7 @@
           <img class="hero-mark" src="assets/NyraLogo.svg" alt="" />
           <h1>Nyra</h1>
         </div>
+        <div id="space-badge" class="space-badge" hidden></div>
         <div class="search-bar">
           <input
             type="text"
@@ -31,6 +32,22 @@
         </div>
         <div id="bookmarks-list" class="bookmarks-list"></div>
       </section>
+
+      <div class="activity-grid">
+        <section id="continue-section" class="activity-section" aria-labelledby="continue-title" hidden>
+          <div class="section-heading">
+            <h2 id="continue-title">Continue where you left off</h2>
+          </div>
+          <div id="continue-list" class="activity-list"></div>
+        </section>
+        <section id="recent-section" class="activity-section" aria-labelledby="recent-title" hidden>
+          <div class="section-heading">
+            <h2 id="recent-title">Recently visited</h2>
+            <button id="open-history" type="button">View history</button>
+          </div>
+          <div id="recent-list" class="activity-list"></div>
+        </section>
+      </div>
     </main>
 
     <dialog id="bookmark-dialog" class="bookmark-dialog">
@@ -63,6 +80,7 @@
       const input = document.getElementById("newtab-search");
       const submit = document.getElementById("newtab-submit");
       const bookmarksList = document.getElementById("bookmarks-list");
+      const spaceBadge = document.getElementById("space-badge");
       const manageBookmarks = document.getElementById("manage-bookmarks");
       const bookmarkDialog = document.getElementById("bookmark-dialog");
       const bookmarkForm = document.getElementById("bookmark-form");
@@ -71,9 +89,24 @@
       const bookmarkError = document.getElementById("bookmark-error");
       const bookmarkCancel = document.getElementById("bookmark-cancel");
       const bookmarkDialogClose = document.getElementById("bookmark-dialog-close");
+      const continueSection = document.getElementById("continue-section");
+      const continueList = document.getElementById("continue-list");
+      const recentSection = document.getElementById("recent-section");
+      const recentList = document.getElementById("recent-list");
+      const openHistory = document.getElementById("open-history");
       let settings = window.NyraSettings
         ? window.NyraSettings.DEFAULT_SETTINGS
         : { httpsFirst: true, searchEngine: "duckduckgo", restoreSession: true };
+
+      function renderSpaceBadge() {
+        if (!spaceBadge) return;
+        const params = new URLSearchParams(window.location.search);
+        const name = params.get("space") || "Personal";
+        const color = params.get("spaceColor") || "#4f8cff";
+        spaceBadge.textContent = `${name} Space`;
+        spaceBadge.style.setProperty("--space-color", color);
+        spaceBadge.hidden = false;
+      }
 
       function applySettings(nextSettings) {
         settings = window.NyraSettings
@@ -125,6 +158,80 @@
         bookmarksList.appendChild(addBookmark);
       }
 
+      function isRemoteUrl(value) {
+        try {
+          const protocol = new URL(value).protocol;
+          return protocol === "http:" || protocol === "https:";
+        } catch {
+          return false;
+        }
+      }
+
+      function siteLabel(value) {
+        try {
+          return new URL(value).hostname.replace(/^www\./, "");
+        } catch {
+          return value;
+        }
+      }
+
+      function activityLink(item) {
+        const link = document.createElement("a");
+        link.className = "activity-card";
+        link.href = item.url;
+        link.title = item.url;
+
+        const icon = document.createElement("span");
+        icon.className = "activity-icon";
+        const image = document.createElement("img");
+        try {
+          image.src = item.favicon || `${new URL(item.url).origin}/favicon.ico`;
+        } catch {
+          image.src = "";
+        }
+        image.alt = "";
+        image.addEventListener("error", () => {
+          icon.textContent = (item.title || siteLabel(item.url)).trim().charAt(0).toUpperCase();
+        });
+        icon.appendChild(image);
+
+        const copy = document.createElement("span");
+        copy.className = "activity-copy";
+        const title = document.createElement("strong");
+        title.textContent = item.title || siteLabel(item.url);
+        const meta = document.createElement("small");
+        meta.textContent = siteLabel(item.url);
+        copy.append(title, meta);
+
+        link.append(icon, copy);
+        return link;
+      }
+
+      function renderActivity(history = [], session = {}) {
+        const params = new URLSearchParams(window.location.search);
+        const spaceId = params.get("spaceId") || "personal";
+        const continueItems = (Array.isArray(session.tabs) ? session.tabs : [])
+          .filter((tab) => tab.spaceId === spaceId && isRemoteUrl(tab.url))
+          .slice(0, 3);
+        const continueUrls = new Set(continueItems.map((item) => item.url));
+        const recentOrigins = new Set();
+        const recentItems = (Array.isArray(history) ? history : []).filter((entry) => {
+          if (!isRemoteUrl(entry.url) || continueUrls.has(entry.url)) return false;
+          const origin = new URL(entry.url).origin;
+          if (recentOrigins.has(origin)) return false;
+          recentOrigins.add(origin);
+          return true;
+        }).slice(0, 4);
+
+        continueList.innerHTML = "";
+        continueItems.forEach((item) => continueList.appendChild(activityLink(item)));
+        continueSection.hidden = continueItems.length === 0;
+
+        recentList.innerHTML = "";
+        recentItems.forEach((item) => recentList.appendChild(activityLink(item)));
+        recentSection.hidden = recentItems.length === 0;
+      }
+
       function normalizedBookmarkUrl(value) {
         const normalized = window.NyraUrl.normalizeUrlInput(value, {
           httpsFirst: settings.httpsFirst,
@@ -152,6 +259,7 @@
         bookmarkDialog.close();
       }
 
+      renderSpaceBadge();
       renderBookmarks();
 
       function submitSearch() {
@@ -169,6 +277,9 @@
       manageBookmarks.addEventListener("click", () => {
         window.location.href = "./bookmarks.html";
       });
+      openHistory.addEventListener("click", () => {
+        window.location.href = "./history.html";
+      });
       bookmarkCancel.addEventListener("click", closeBookmarkDialog);
       bookmarkDialogClose.addEventListener("click", closeBookmarkDialog);
       bookmarkForm.addEventListener("submit", async (event) => {
@@ -185,6 +296,15 @@
         renderBookmarks(nextBookmarks);
         closeBookmarkDialog();
       });
+
+      if (window.nyra) {
+        Promise.all([window.nyra.getHistory(), window.nyra.loadSession()])
+          .then(([history, session]) => renderActivity(history, session))
+          .catch(() => renderActivity());
+        window.nyra.onHistoryChanged((history) => {
+          window.nyra.loadSession().then((session) => renderActivity(history, session));
+        });
+      }
     </script>
 
   </body>

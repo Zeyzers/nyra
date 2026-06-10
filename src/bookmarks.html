@@ -22,11 +22,21 @@
             <option value="site">Site</option>
             <option value="created">Created date</option>
           </select>
-          <button id="add-current-page" type="button">Add current page</button>
-          <button id="add-bookmark" type="button">Add bookmark</button>
-          <button id="add-folder" type="button">New folder</button>
-          <button id="import-bookmarks" type="button">Import</button>
-          <button id="export-bookmarks" type="button">Export</button>
+          <details class="action-menu" id="add-menu">
+            <summary><span data-icon="plus"></span>Add</summary>
+            <div class="action-menu-popover">
+              <button id="add-current-page" type="button">Current page</button>
+              <button id="add-bookmark" type="button">Bookmark manually</button>
+            </div>
+          </details>
+          <details class="action-menu align-right" id="more-menu">
+            <summary><span data-icon="more-horizontal"></span>More</summary>
+            <div class="action-menu-popover">
+              <button id="add-folder" type="button">New folder</button>
+              <button id="import-bookmarks" type="button">Import bookmarks</button>
+              <button id="export-bookmarks" type="button">Export bookmarks</button>
+            </div>
+          </details>
         </div>
       </header>
 
@@ -117,6 +127,7 @@
       const folderError = document.getElementById("folder-error");
       const folderCancel = document.getElementById("folder-cancel");
       const folderClose = document.getElementById("folder-close");
+      const actionMenus = Array.from(document.querySelectorAll(".action-menu"));
 
       let bookmarks = [];
       let folders = [];
@@ -337,11 +348,30 @@
         }
       }
 
+      function closeActionMenus(except = null) {
+        actionMenus.forEach((menu) => {
+          if (menu !== except) menu.open = false;
+        });
+      }
+
       bookmarkSearch.addEventListener("input", renderBookmarks);
       bookmarkSort.addEventListener("change", renderBookmarks);
-      addBookmarkButton.addEventListener("click", () => openDialog());
-      addFolderButton.addEventListener("click", () => openFolderDialog());
+      actionMenus.forEach((menu) => menu.addEventListener("toggle", () => {
+        if (menu.open) closeActionMenus(menu);
+      }));
+      document.addEventListener("pointerdown", (event) => {
+        if (!event.target.closest(".action-menu")) closeActionMenus();
+      });
+      addBookmarkButton.addEventListener("click", () => {
+        closeActionMenus();
+        openDialog();
+      });
+      addFolderButton.addEventListener("click", () => {
+        closeActionMenus();
+        openFolderDialog();
+      });
       addCurrentPageButton.addEventListener("click", async () => {
+        closeActionMenus();
         const page = currentPage();
         const url = normalizedBookmarkUrl(page.url || "");
         if (!url) {
@@ -355,8 +385,14 @@
         });
         renderBookmarks();
       });
-      importBookmarksButton.addEventListener("click", async () => setBookmarksData(await window.nyra.importBookmarksHtml()));
-      exportBookmarksButton.addEventListener("click", () => window.nyra.exportBookmarksHtml());
+      importBookmarksButton.addEventListener("click", async () => {
+        closeActionMenus();
+        setBookmarksData(await window.nyra.importBookmarksHtml());
+      });
+      exportBookmarksButton.addEventListener("click", () => {
+        closeActionMenus();
+        window.nyra.exportBookmarksHtml();
+      });
       dialogCancel.addEventListener("click", closeDialog);
       dialogClose.addEventListener("click", closeDialog);
       document.getElementById("folder-cancel").addEventListener("click", () => folderDialog.close());

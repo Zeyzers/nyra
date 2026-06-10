@@ -54,6 +54,7 @@
       let appInfo = null;
       let downloadsInfo = null;
       let permissions = [];
+      let spaces = [];
       let siteData = [];
       let updateInfo = null;
       let savedLoginsInfo = { available: true, logins: [] };
@@ -191,9 +192,12 @@
           <div class="permissions-panel" aria-label="Site permissions">
             ${renderPermissions()}
           </div>
+          <div class="spaces-panel" aria-label="Nyra Spaces">
+            ${renderSpaces()}
+          </div>
           <div class="status-panel" aria-label="Security status">
             ${statusItem("External links", "Remote pages can only hand off mailto: and tel: protocols externally.", "Restricted")}
-            ${statusItem("Permissions", "Unknown site permission requests show a Nyra prompt and saved decisions apply per site.", "Prompt per site")}
+            ${statusItem("Permissions", "Unknown permission requests show a Nyra prompt and saved decisions apply per site and Space.", "Prompt per Space")}
             ${statusItem("Remote page isolation", "Remote pages run in isolated webviews; Nyra preload is only attached to trusted local pages.", "Enabled")}
           </div>
         `;
@@ -213,15 +217,41 @@
           <div class="permission-row">
             <span>
               <strong>${escapeHtml(permission.domain)}</strong>
-              <small>${escapeHtml(permission.permission)}</small>
+              <small>${escapeHtml(permission.permission)} · ${escapeHtml(spaces.find((space) => space.id === permission.spaceId)?.name || "Personal")} Space</small>
             </span>
-            <select data-permission-domain="${escapeHtml(permission.domain)}" data-permission-type="${escapeHtml(permission.permission)}">
+            <select data-permission-domain="${escapeHtml(permission.domain)}" data-permission-type="${escapeHtml(permission.permission)}" data-space-id="${escapeHtml(permission.spaceId || "personal")}">
               <option value="allow" ${permission.value === "allow" ? "selected" : ""}>Allow</option>
               <option value="deny" ${permission.value === "deny" ? "selected" : ""}>Deny</option>
             </select>
-            <button class="inline-button remove-permission" type="button" data-permission-domain="${escapeHtml(permission.domain)}" data-permission-type="${escapeHtml(permission.permission)}">Remove</button>
+            <button class="inline-button remove-permission" type="button" data-permission-domain="${escapeHtml(permission.domain)}" data-permission-type="${escapeHtml(permission.permission)}" data-space-id="${escapeHtml(permission.spaceId || "personal")}">Remove</button>
           </div>
         `).join("");
+      }
+
+      function renderSpaces() {
+        if (!spaces.length) {
+          return `<p class="empty-status">No Spaces found.</p>`;
+        }
+
+        return `
+          <div class="panel-heading">
+            <strong>Nyra Spaces</strong>
+            <span>Separate cookies, logins and site data by digital life.</span>
+          </div>
+          ${spaces.map((space) => `
+            <div class="permission-row space-settings-row">
+              <span>
+                <strong>${escapeHtml(space.name)} Space</strong>
+                <small>${escapeHtml(space.partition || "")}</small>
+              </span>
+              <span class="status-chip" style="--chip-color:${escapeHtml(space.color || "#4f8cff")}">${space.id === "personal" ? "Default" : "Isolated"}</span>
+              <div class="row-actions">
+                <button class="inline-button clear-space-data" type="button" data-space-id="${escapeHtml(space.id)}">Clear data</button>
+                ${space.id === "personal" ? "" : `<button class="inline-button delete-space" type="button" data-space-id="${escapeHtml(space.id)}">Delete</button>`}
+              </div>
+            </div>
+          `).join("")}
+        `;
       }
 
       function formatDate(value) {
@@ -241,7 +271,8 @@
         return logins.filter((login) => (
           String(login.origin || "").toLowerCase().includes(query) ||
           String(login.domain || "").toLowerCase().includes(query) ||
-          String(login.username || "").toLowerCase().includes(query)
+          String(login.username || "").toLowerCase().includes(query) ||
+          String(spaces.find((space) => space.id === login.spaceId)?.name || "").toLowerCase().includes(query)
         ));
       }
 
@@ -249,7 +280,10 @@
         if (!savedLoginsInfo.available) {
           return `
             <div class="saved-passwords-header">
-              <strong>Saved passwords</strong>
+              <span>
+                <strong>Saved passwords</strong>
+                <small>Encrypted locally with your operating system.</small>
+              </span>
               ${badge("Encryption unavailable")}
             </div>
             <p class="empty-status">Nyra cannot access encrypted passwords because OS encryption is unavailable.</p>
@@ -259,33 +293,47 @@
         const logins = filteredSavedLogins();
         return `
           <div class="saved-passwords-header">
-            <strong>Saved passwords</strong>
+            <span>
+              <strong>Saved passwords</strong>
+              <small>${savedLoginsInfo.logins.length} saved login${savedLoginsInfo.logins.length === 1 ? "" : "s"} · encrypted locally</small>
+            </span>
             <input id="password-search" type="search" value="${escapeHtml(passwordSearch)}" placeholder="Search passwords" />
             <button id="clear-saved-logins" class="inline-button" type="button" ${savedLoginsInfo.logins.length ? "" : "disabled"}>Clear all</button>
           </div>
           ${savedLoginsInfo.recovery ? `<p class="empty-status">Password store was recovered from a corrupted file.</p>` : ""}
-          ${logins.length ? logins.map((login) => {
+          ${logins.length ? `<div class="saved-passwords-grid">${logins.map((login) => {
             const revealed = revealedPasswords.get(login.id);
+            const domain = login.domain || login.origin;
+            const initial = String(domain || login.username || "?").charAt(0).toUpperCase();
             return `
-              <div class="saved-password-row">
-                <span>
-                  <strong>${escapeHtml(login.domain || login.origin)}</strong>
-                  <small>${escapeHtml(login.origin)}</small>
-                </span>
-                <span>
-                  <strong>${escapeHtml(login.username)}</strong>
-                  <small>Created ${formatDate(login.createdAt)} · Updated ${formatDate(login.updatedAt)}</small>
-                  ${revealed ? `<code>${escapeHtml(revealed)}</code>` : ""}
-                </span>
+              <article class="saved-password-card">
+                <div class="saved-password-identity">
+                  <span class="saved-password-avatar">${escapeHtml(initial)}</span>
+                  <span>
+                    <strong>${escapeHtml(domain)}</strong>
+                    <small>${escapeHtml(spaces.find((space) => space.id === login.spaceId)?.name || "Personal")} Space</small>
+                  </span>
+                </div>
+                <div class="saved-password-account">
+                  <span>
+                    <small>Username</small>
+                    <strong>${escapeHtml(login.username)}</strong>
+                  </span>
+                  <span>
+                    <small>Password</small>
+                    <code>${revealed ? escapeHtml(revealed) : "••••••••••••"}</code>
+                  </span>
+                </div>
+                <small class="saved-password-date">Created ${formatDate(login.createdAt)} · Updated ${formatDate(login.updatedAt)}</small>
                 <div class="saved-password-actions">
                   <button class="inline-button reveal-login" type="button" data-login-id="${escapeHtml(login.id)}">${revealed ? "Hide" : pendingRevealId === login.id ? "Confirm reveal" : "Reveal"}</button>
-                  <button class="inline-button copy-username" type="button" data-login-id="${escapeHtml(login.id)}">Copy username</button>
-                  <button class="inline-button copy-password" type="button" data-login-id="${escapeHtml(login.id)}">Copy password</button>
+                  <button class="inline-button copy-username" type="button" data-login-id="${escapeHtml(login.id)}">Copy user</button>
+                  <button class="inline-button copy-password" type="button" data-login-id="${escapeHtml(login.id)}">Copy pass</button>
                   <button class="inline-button delete-login" type="button" data-login-id="${escapeHtml(login.id)}">Delete</button>
                 </div>
-              </div>
+              </article>
             `;
-          }).join("") : `<p class="empty-status">No saved passwords.</p>`}
+          }).join("")}</div>` : `<div class="password-empty-state"><span data-icon="lock"></span><strong>No saved passwords</strong><p>Logins you choose to save will appear here, encrypted on this device.</p></div>`}
         `;
       }
 
@@ -298,9 +346,9 @@
           <div class="site-data-row">
             <span>
               <strong>${escapeHtml(item.domain)}</strong>
-              <small>${Number(item.cookies || 0)} cookie${Number(item.cookies || 0) === 1 ? "" : "s"}</small>
+              <small>${Number(item.cookies || 0)} cookie${Number(item.cookies || 0) === 1 ? "" : "s"} · ${escapeHtml(item.spaceName || "Personal")} Space</small>
             </span>
-            <button class="inline-button clear-site-data-domain" type="button" data-site-domain="${escapeHtml(item.domain)}">Clear</button>
+            <button class="inline-button clear-site-data-domain" type="button" data-site-domain="${escapeHtml(item.domain)}" data-space-id="${escapeHtml(item.spaceId || "personal")}">Clear</button>
           </div>
         `).join("");
       }
@@ -477,9 +525,28 @@
         });
         document.querySelectorAll(".clear-site-data-domain").forEach((button) => {
           button.addEventListener("click", async () => {
-            siteData = await window.nyra.clearSiteData(button.dataset.siteDomain);
+            siteData = await window.nyra.clearSiteData(button.dataset.siteDomain, button.dataset.spaceId);
             renderSection(activeSection);
             setStatus("Site data cleared.");
+          });
+        });
+        document.querySelectorAll(".clear-space-data").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const space = spaces.find((item) => item.id === button.dataset.spaceId);
+            const name = space ? `${space.name} Space` : "this Space";
+            if (!confirm(`Clear cookies, cache and local site data for ${name}? This cannot be undone.`)) return;
+            const result = await window.nyra.clearSpaceData(button.dataset.spaceId);
+            setStatus(result.ok ? `${name} data cleared.` : (result.error || "Could not clear Space data."));
+          });
+        });
+        document.querySelectorAll(".delete-space").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const space = spaces.find((item) => item.id === button.dataset.spaceId);
+            const name = space ? `${space.name} Space` : "this Space";
+            if (!confirm(`Delete ${name} and clear its cookies, cache and local site data? Tabs from this Space will fall back to Personal on next restore.`)) return;
+            spaces = await window.nyra.removeSpace(button.dataset.spaceId);
+            renderSection(activeSection);
+            setStatus(`${name} deleted.`);
           });
         });
         document.getElementById("password-search")?.addEventListener("input", (event) => {
@@ -556,7 +623,11 @@
         document.querySelectorAll("[data-permission-domain][data-permission-type]").forEach((control) => {
           if (control.classList.contains("remove-permission")) {
             control.addEventListener("click", async () => {
-              permissions = await window.nyra.removePermission(control.dataset.permissionDomain, control.dataset.permissionType);
+              permissions = await window.nyra.removePermission(
+                control.dataset.permissionDomain,
+                control.dataset.permissionType,
+                control.dataset.spaceId
+              );
               renderSection(activeSection);
               setStatus("Site permission removed.");
             });
@@ -567,6 +638,7 @@
             permissions = await window.nyra.setPermission({
               domain: control.dataset.permissionDomain,
               permission: control.dataset.permissionType,
+              spaceId: control.dataset.spaceId,
               value: control.value,
             });
             renderSection(activeSection);
@@ -642,6 +714,7 @@
         };
 
         settingsContent.innerHTML = (renderers[section] || renderers.general)();
+        window.NyraIcons?.mount(settingsContent);
         bindSectionControls();
       }
 
@@ -651,7 +724,7 @@
           return;
         }
 
-        const [loadedSettings, loadedAppInfo, loadedDownloadsInfo, loadedPermissions, loadedSiteData, loadedSavedLogins, loadedUpdateInfo] = await Promise.all([
+        const [loadedSettings, loadedAppInfo, loadedDownloadsInfo, loadedPermissions, loadedSiteData, loadedSavedLogins, loadedUpdateInfo, loadedSpaces] = await Promise.all([
           window.nyra.getSettings(),
           window.nyra.getAppInfo(),
           window.nyra.getDownloadsInfo(),
@@ -659,11 +732,13 @@
           window.nyra.getSiteData(),
           window.nyra.getSavedLogins(),
           window.nyra.getUpdateState(),
+          window.nyra.getSpaces(),
         ]);
 
         appInfo = loadedAppInfo;
         downloadsInfo = loadedDownloadsInfo;
         permissions = loadedPermissions;
+        spaces = Array.isArray(loadedSpaces) ? loadedSpaces : [];
         siteData = Array.isArray(loadedSiteData) ? loadedSiteData : [];
         savedLoginsInfo = loadedSavedLogins || { available: false, logins: [] };
         updateInfo = loadedUpdateInfo || null;
@@ -677,6 +752,10 @@
         });
         window.nyra.onPermissionsChanged((nextPermissions) => {
           permissions = Array.isArray(nextPermissions) ? nextPermissions : [];
+          if (activeSection === "privacy") renderSection(activeSection);
+        });
+        window.nyra.onSpacesChanged((nextSpaces) => {
+          spaces = Array.isArray(nextSpaces) ? nextSpaces : [];
           if (activeSection === "privacy") renderSection(activeSection);
         });
         window.nyra.onUpdateState((nextUpdateInfo) => {

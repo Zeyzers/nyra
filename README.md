@@ -16,7 +16,7 @@ It is designed to feel quiet, fast and private by default, while still giving yo
 
 ## Status
 
-Current version: **1.6.2**
+Current version: **1.7.0**
 
 Nyra is actively evolving. Windows is the primary target right now. Linux packaging scripts exist, but Windows is where features and releases are currently validated first.
 
@@ -38,6 +38,42 @@ I built Nyra to understand how desktop browsers work, experiment with Electron, 
 
 ---
 
+## Screenshots
+
+These are real screenshots from the current Windows development build.
+
+### Browser and New Tab
+
+Start with bookmarks, recent sites and restorable pages from the current Space.
+
+![Nyra browser shell, Spaces sidebar and New Tab page](./docs/assets/screenshots/nyra-new-tab.png)
+
+### Nyra Spaces
+
+Create separate spaces for work, personal browsing, shopping or any other part of your digital life.
+
+![Creating an isolated Space in Nyra](./docs/assets/screenshots/nyra-spaces.png)
+
+### Bookmarks
+
+Organize, search, edit and open saved sites from the built-in bookmark manager.
+
+![Nyra bookmark manager with folders and saved sites](./docs/assets/screenshots/nyra-bookmarks.png)
+
+### Downloads
+
+Track persistent downloads, progress, missing files and file actions from one page.
+
+![Nyra downloads page with completed, missing and failed items](./docs/assets/screenshots/nyra-downloads.png)
+
+### Privacy and Security
+
+Manage HTTPS-first navigation, locally encrypted passwords, site data and permissions per Space.
+
+![Nyra Privacy and Security settings](./docs/assets/screenshots/nyra-settings-privacy.png)
+
+---
+
 ## Features
 
 ### Browser Shell
@@ -53,6 +89,16 @@ I built Nyra to understand how desktop browsers work, experiment with Electron, 
 - Fullscreen support for sites such as YouTube.
 - Startup animation and native Windows icon integration.
 - Hardware acceleration setting, applied on restart.
+
+### Spaces
+
+- Separate digital lives with isolated cookies, logins and site data.
+- Every normal tab belongs to a Space backed by its own persistent Electron partition.
+- Create named Spaces with distinct icons and colors.
+- Switch Spaces from the sidebar and see only their tabs.
+- Move or duplicate tabs between Spaces.
+- Session restore preserves each tab's Space.
+- Passwords, permissions and site data remain associated with the correct Space.
 
 ### Internal Pages
 
@@ -204,7 +250,7 @@ Typical release flow:
 4. Run `npm test`.
 5. Run `npm run dist`.
 6. Commit the version bump.
-7. Create a tag such as `v1.6.2`.
+7. Create a tag such as `v1.7.0`.
 8. Create a GitHub Release and upload:
    - `NyraSetup.exe`
    - `NyraSetup.exe.blockmap`

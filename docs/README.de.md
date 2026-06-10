@@ -16,7 +16,7 @@ Er soll ruhig, schnell und standardmäßig privat wirken, aber trotzdem die allt
 
 ## Status
 
-Aktuelle Version: **1.6.2**
+Aktuelle Version: **1.7.0**
 
 Nyra wird aktiv weiterentwickelt. Windows ist aktuell das wichtigste Ziel. Es gibt Packaging-Skripte für Linux, aber Features und Releases werden derzeit zuerst unter Windows validiert.
 
@@ -38,6 +38,42 @@ Ich habe Nyra gebaut, um zu verstehen, wie Desktop-Browser funktionieren, mit El
 
 ---
 
+## Screenshots
+
+Dies sind echte Screenshots aus dem aktuellen Windows-Entwicklungsbuild.
+
+### Browser und neuer Tab
+
+Starte mit Lesezeichen, zuletzt besuchten Seiten und wiederherstellbaren Seiten des aktuellen Space.
+
+![Nyra Browser-Shell, Spaces-Sidebar und New-Tab-Seite](./assets/screenshots/nyra-new-tab.png)
+
+### Nyra Spaces
+
+Erstelle getrennte Bereiche für Arbeit, persönliches Browsen, Shopping oder andere Teile deines digitalen Lebens.
+
+![Erstellen eines isolierten Space in Nyra](./assets/screenshots/nyra-spaces.png)
+
+### Lesezeichen
+
+Organisiere, durchsuche, bearbeite und öffne gespeicherte Seiten im integrierten Lesezeichen-Manager.
+
+![Nyra-Lesezeichen-Manager mit Ordnern und gespeicherten Seiten](./assets/screenshots/nyra-bookmarks.png)
+
+### Downloads
+
+Verfolge dauerhafte Downloads, Fortschritt, fehlende Dateien und Dateiaktionen auf einer Seite.
+
+![Nyra-Downloadseite mit abgeschlossenen, fehlenden und fehlgeschlagenen Einträgen](./assets/screenshots/nyra-downloads.png)
+
+### Datenschutz und Sicherheit
+
+Verwalte HTTPS-First-Navigation, lokal verschlüsselte Passwörter, Websitedaten und Berechtigungen pro Space.
+
+![Nyra-Einstellungen für Datenschutz und Sicherheit](./assets/screenshots/nyra-settings-privacy.png)
+
+---
+
 ## Funktionen
 
 ### Browser-Shell
@@ -53,6 +89,16 @@ Ich habe Nyra gebaut, um zu verstehen, wie Desktop-Browser funktionieren, mit El
 - Fullscreen-Unterstützung für Seiten wie YouTube.
 - Startanimation und native Windows-Icon-Integration.
 - Hardwarebeschleunigungs-Einstellung, die nach Neustart greift.
+
+### Spaces
+
+- Getrennte digitale Lebensbereiche mit isolierten Cookies, Logins und Website-Daten.
+- Jeder normale Tab gehört zu einem Space mit eigener persistenter Electron-Partition.
+- Spaces mit eigenem Namen, Icon und eigener Farbe erstellen.
+- Spaces über die Sidebar wechseln und nur die zugehörigen Tabs anzeigen.
+- Tabs zwischen Spaces verschieben oder duplizieren.
+- Die Sitzungswiederherstellung bewahrt den Space jedes Tabs.
+- Passwörter, Berechtigungen und Website-Daten bleiben dem richtigen Space zugeordnet.
 
 ### Interne Seiten
 
@@ -204,7 +250,7 @@ Typischer Ablauf:
 4. `npm test` ausführen.
 5. `npm run dist` ausführen.
 6. Versions-Bump committen.
-7. Tag wie `v1.6.2` erstellen.
+7. Tag wie `v1.7.0` erstellen.
 8. GitHub Release erstellen und hochladen:
    - `NyraSetup.exe`
    - `NyraSetup.exe.blockmap`

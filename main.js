@@ -50,12 +50,15 @@ const BLOCKED_REQUEST_DOMAINS = new Set([
   'scorecardresearch.com'
 ]);
 const SAFE_MODE = process.env.NYRA_SAFE_MODE === '1' || process.argv.includes('--safe-mode');
+const SPACE_PARTITION_PREFIX = 'persist:nyra-space-';
 let storage;
 let passwordStore;
 let pendingPermissionPrompts = new Map();
 let startupLogPath = path.join(process.env.TEMP || process.env.TMP || __dirname, 'nyra-startup.log');
 const devtoolsDocks = new Map();
 const loadedExtensions = new Map();
+const configuredBrowsingSessions = new WeakSet();
+const browsingSessionSpaceIds = new WeakMap();
 let autoUpdaterInitialized = false;
 let updateState = {
   status: 'idle',
@@ -469,19 +472,34 @@ function getOwnerShellContents(contents) {
   return contents.hostWebContents || contents.getOwnerBrowserWindow()?.webContents || null;
 }
 
-function installSecurityHandlers() {
-  session.defaultSession.setPermissionCheckHandler((_contents, permission, requestingOrigin) => {
+function spaceIdForSession(targetSession) {
+  return browsingSessionSpaceIds.get(targetSession) || 'personal';
+}
+
+function spaceForId(spaceId) {
+  return storage.getSpaces().find((space) => space.id === String(spaceId)) || storage.getSpaces()[0];
+}
+
+function browsingSessionForSpace(spaceId) {
+  const space = spaceForId(spaceId);
+  return space ? session.fromPartition(space.partition) : session.defaultSession;
+}
+
+function installSecurityHandlers(targetSession = session.defaultSession) {
+  targetSession.setPermissionCheckHandler((_contents, permission, requestingOrigin) => {
     if (permission === 'fullscreen') return true;
     if (!isManagedSitePermission(permission)) return true;
 
     const normalizedPermission = permissionName(permission);
     const domain = domainForUrl(requestingOrigin);
-    const saved = domain ? storage.getPermission(domain, normalizedPermission) : null;
+    const saved = domain
+      ? storage.getPermission(domain, normalizedPermission, spaceIdForSession(targetSession))
+      : null;
     if (saved) return saved.value === 'allow';
     return false;
   });
 
-  session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details = {}) => {
+  targetSession.setPermissionRequestHandler((contents, permission, callback, details = {}) => {
     const normalizedPermission = permissionName(permission);
     const requestingUrl = details.requestingUrl || contents.getURL();
     const domain = domainForUrl(requestingUrl);
@@ -496,7 +514,8 @@ function installSecurityHandlers() {
       return;
     }
 
-    const saved = storage.getPermission(domain, normalizedPermission);
+    const spaceId = spaceIdForSession(targetSession);
+    const saved = storage.getPermission(domain, normalizedPermission, spaceId);
     if (saved) {
       callback(saved.value === 'allow');
       return;
@@ -509,20 +528,16 @@ function installSecurityHandlers() {
     }
 
     const id = `perm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    pendingPermissionPrompts.set(id, { callback, domain, permission: normalizedPermission });
+    pendingPermissionPrompts.set(id, { callback, domain, permission: normalizedPermission, spaceId });
     ownerWindow.webContents.send('nyra:permission-prompt', {
       id,
       domain,
       permission: normalizedPermission,
+      spaceId,
       url: requestingUrl
     });
   });
 
-  app.on('web-contents-created', (_event, contents) => {
-    hardenWebContents(contents);
-    contents.on('enter-html-full-screen', () => handleGuestHtmlFullscreen(contents, true));
-    contents.on('leave-html-full-screen', () => handleGuestHtmlFullscreen(contents, false));
-  });
 }
 
 function isBlockedRequest(url) {
@@ -559,8 +574,8 @@ function isYoutubeCompatibilityRequest(details = {}) {
   });
 }
 
-function installAdBlocker() {
-  session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (details, callback) => {
+function installAdBlocker(targetSession = session.defaultSession) {
+  targetSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (details, callback) => {
     callback({ cancel: !isYoutubeCompatibilityRequest(details) && isBlockedRequest(details.url) });
   });
 }
@@ -572,23 +587,34 @@ function cookieOrigin(cookie) {
   return `${cookie.secure ? 'https' : 'http'}://${domain}`;
 }
 
-async function getSiteDataSummary() {
-  const cookies = await session.defaultSession.cookies.get({});
+async function getSiteDataSummary(spaceId) {
+  const targetSpaces = spaceId ? [spaceForId(spaceId)].filter(Boolean) : storage.getSpaces();
   const domains = new Map();
 
-  cookies.forEach((cookie) => {
-    const domain = String(cookie.domain || '').replace(/^\./, '').replace(/^www\./, '');
-    if (!domain) return;
+  await Promise.all(targetSpaces.map(async (space) => {
+    const cookies = await browsingSessionForSpace(space.id).cookies.get({});
+    cookies.forEach((cookie) => {
+      const domain = String(cookie.domain || '').replace(/^\./, '').replace(/^www\./, '');
+      if (!domain) return;
 
-    const existing = domains.get(domain) || { domain, cookies: 0 };
-    existing.cookies += 1;
-    domains.set(domain, existing);
-  });
+      const key = `${space.id}:${domain}`;
+      const existing = domains.get(key) || {
+        domain,
+        cookies: 0,
+        spaceId: space.id,
+        spaceName: space.name
+      };
+      existing.cookies += 1;
+      domains.set(key, existing);
+    });
+  }));
 
-  return Array.from(domains.values()).sort((a, b) => a.domain.localeCompare(b.domain));
+  return Array.from(domains.values()).sort((a, b) => (
+    a.spaceName.localeCompare(b.spaceName) || a.domain.localeCompare(b.domain)
+  ));
 }
 
-async function getSiteSummary(url) {
+async function getSiteSummary(url, spaceId = 'personal') {
   const domain = domainForUrl(url);
   const origin = (() => {
     try {
@@ -606,28 +632,32 @@ async function getSiteSummary(url) {
     };
   }
 
-  const cookies = await session.defaultSession.cookies.get({});
+  const normalizedSpaceId = spaceForId(spaceId)?.id || 'personal';
+  const cookies = await browsingSessionForSpace(normalizedSpaceId).cookies.get({});
   const cookieCount = cookies.filter((cookie) => {
     const cookieDomain = String(cookie.domain || '').replace(/^\./, '').replace(/^www\./, '');
     return cookieDomain === domain || cookieDomain.endsWith(`.${domain}`);
   }).length;
   const loginInfo = passwordStore
-    ? passwordStore.findLoginsForUrl(url)
+    ? passwordStore.findLoginsForUrl(url, normalizedSpaceId)
     : { logins: [] };
 
   return {
     domain,
     origin,
     cookies: cookieCount,
-    savedLogins: Array.isArray(loginInfo.logins) ? loginInfo.logins.length : 0
+    savedLogins: Array.isArray(loginInfo.logins) ? loginInfo.logins.length : 0,
+    spaceId: normalizedSpaceId
   };
 }
 
-async function clearSiteDataForDomain(domain) {
+async function clearSiteDataForDomain(domain, spaceId = 'personal') {
   const normalizedDomain = String(domain || '').replace(/^\./, '').replace(/^www\./, '');
+  const normalizedSpaceId = spaceForId(spaceId)?.id || 'personal';
+  const targetSession = browsingSessionForSpace(normalizedSpaceId);
   if (!normalizedDomain) return getSiteDataSummary();
 
-  const cookies = await session.defaultSession.cookies.get({});
+  const cookies = await targetSession.cookies.get({});
   await Promise.all(cookies
     .filter((cookie) => {
       const cookieDomain = String(cookie.domain || '').replace(/^\./, '').replace(/^www\./, '');
@@ -635,13 +665,13 @@ async function clearSiteDataForDomain(domain) {
     })
     .map((cookie) => {
       const origin = cookieOrigin(cookie);
-      return origin ? session.defaultSession.cookies.remove(origin, cookie.name) : Promise.resolve();
+      return origin ? targetSession.cookies.remove(origin, cookie.name) : Promise.resolve();
     }));
 
-  await session.defaultSession.clearStorageData({
-    origin: `https://${normalizedDomain}`,
+  await Promise.all(['https', 'http'].map((protocol) => targetSession.clearStorageData({
+    origin: `${protocol}://${normalizedDomain}`,
     storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage']
-  }).catch(() => {});
+  }).catch(() => {})));
 
   return getSiteDataSummary();
 }
@@ -1205,10 +1235,55 @@ function installIpcHandlers() {
   });
 
   ipcMain.handle('nyra:load-session', () => (SAFE_MODE ? { tabs: [] } : storage.getSession()));
-  ipcMain.handle('nyra:save-session', (_event, tabs) => storage.saveSession({ tabs }));
-  ipcMain.on('nyra:save-session-sync', (event, tabs) => {
-    storage.saveSession({ tabs });
+  ipcMain.handle('nyra:save-session', (_event, sessionState) => storage.saveSession(
+    Array.isArray(sessionState) ? { tabs: sessionState } : sessionState
+  ));
+  ipcMain.on('nyra:save-session-sync', (event, sessionState) => {
+    storage.saveSession(Array.isArray(sessionState) ? { tabs: sessionState } : sessionState);
     event.returnValue = true;
+  });
+  ipcMain.handle('nyra:get-spaces', () => storage.getSpaces());
+  ipcMain.handle('nyra:create-space', (_event, space) => {
+    const spaces = storage.createSpace(space || {});
+    configureSpaceSessions();
+    broadcast('nyra:spaces-changed', spaces);
+    return spaces;
+  });
+  ipcMain.handle('nyra:update-space', (_event, id, updates) => {
+    const spaces = storage.updateSpace(id, updates || {});
+    broadcast('nyra:spaces-changed', spaces);
+    return spaces;
+  });
+  ipcMain.handle('nyra:remove-space', async (_event, id) => {
+    const current = storage.getSpaces().find((space) => space.id === String(id));
+    const spaces = storage.removeSpace(id);
+    if (current && current.id !== 'personal') {
+      storage.clearPermissions(current.id);
+      passwordStore.clearLogins(current.id);
+      broadcast('nyra:permissions-changed', storage.getPermissions());
+    }
+    broadcast('nyra:spaces-changed', spaces);
+    if (current && current.id !== 'personal') {
+      const partitionSession = session.fromPartition(current.partition);
+      await partitionSession.clearStorageData({
+        storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage']
+      });
+      await partitionSession.clearCache();
+    }
+    return spaces;
+  });
+  ipcMain.handle('nyra:clear-space-data', async (_event, id) => {
+    const current = storage.getSpaces().find((space) => space.id === String(id));
+    if (!current || !String(current.partition || '').startsWith(SPACE_PARTITION_PREFIX)) {
+      return { ok: false, error: 'Unknown Space.' };
+    }
+
+    const partitionSession = session.fromPartition(current.partition);
+    await partitionSession.clearStorageData({
+      storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage']
+    });
+    await partitionSession.clearCache();
+    return { ok: true };
   });
   ipcMain.handle('nyra:get-bookmarks', () => storage.getBookmarks());
   ipcMain.handle('nyra:get-bookmarks-data', () => storage.getBookmarksData());
@@ -1310,6 +1385,7 @@ function installIpcHandlers() {
     broadcast('nyra:downloads-changed', nextState.downloads);
     broadcast('nyra:permissions-changed', nextState.permissions);
     broadcast('nyra:history-changed', nextState.history);
+    broadcast('nyra:spaces-changed', nextState.spaces);
     broadcast('nyra:state-reset', nextState);
     return nextState;
   });
@@ -1474,23 +1550,23 @@ function installIpcHandlers() {
     broadcast('nyra:permissions-changed', permissions);
     return permissions;
   });
-  ipcMain.handle('nyra:remove-permission', (_event, domain, permission) => {
-    const permissions = storage.removePermission(domain, permission);
+  ipcMain.handle('nyra:remove-permission', (_event, domain, permission, spaceId) => {
+    const permissions = storage.removePermission(domain, permission, spaceId);
     broadcast('nyra:permissions-changed', permissions);
     return permissions;
   });
-  ipcMain.handle('nyra:clear-permissions', () => {
-    const permissions = storage.clearPermissions();
+  ipcMain.handle('nyra:clear-permissions', (_event, spaceId) => {
+    const permissions = storage.clearPermissions(spaceId);
     broadcast('nyra:permissions-changed', permissions);
     return permissions;
   });
-  ipcMain.handle('nyra:get-site-data', () => getSiteDataSummary());
-  ipcMain.handle('nyra:get-site-summary', (_event, url) => getSiteSummary(url));
-  ipcMain.handle('nyra:clear-site-data', (_event, domain) => clearSiteDataForDomain(domain));
+  ipcMain.handle('nyra:get-site-data', (_event, spaceId) => getSiteDataSummary(spaceId));
+  ipcMain.handle('nyra:get-site-summary', (_event, url, spaceId) => getSiteSummary(url, spaceId));
+  ipcMain.handle('nyra:clear-site-data', (_event, domain, spaceId) => clearSiteDataForDomain(domain, spaceId));
   ipcMain.handle('nyra:clear-all-site-data', async () => {
-    await session.defaultSession.clearStorageData({
+    await Promise.all(storage.getSpaces().map((space) => browsingSessionForSpace(space.id).clearStorageData({
       storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage']
-    });
+    })));
     return getSiteDataSummary();
   });
   ipcMain.handle('nyra:get-diagnostics', () => getDiagnostics());
@@ -1511,14 +1587,14 @@ function installIpcHandlers() {
     const errorMessage = await shell.openPath(target);
     return { ok: !errorMessage, error: errorMessage };
   });
-  ipcMain.handle('nyra:get-saved-logins', () => passwordStore.listLogins());
-  ipcMain.handle('nyra:get-logins-for-url', (_event, url) => passwordStore.findLoginsForUrl(url));
+  ipcMain.handle('nyra:get-saved-logins', (_event, spaceId) => passwordStore.listLogins(spaceId));
+  ipcMain.handle('nyra:get-logins-for-url', (_event, url, spaceId) => passwordStore.findLoginsForUrl(url, spaceId));
   ipcMain.handle('nyra:get-login-secret', (_event, id) => passwordStore.getLoginSecret(id));
   ipcMain.handle('nyra:classify-login', (_event, credential) => passwordStore.classifyLogin(credential || {}));
   ipcMain.handle('nyra:save-login', (_event, credential) => passwordStore.saveLogin(credential || {}));
   ipcMain.handle('nyra:delete-saved-login', (_event, id) => passwordStore.deleteLogin(id));
   ipcMain.handle('nyra:clear-saved-logins', () => passwordStore.clearLogins());
-  ipcMain.handle('nyra:never-save-login', (_event, url) => passwordStore.neverSaveForUrl(url));
+  ipcMain.handle('nyra:never-save-login', (_event, url, spaceId) => passwordStore.neverSaveForUrl(url, spaceId));
   ipcMain.handle('nyra:resolve-permission-prompt', (_event, id, value) => {
     const prompt = pendingPermissionPrompts.get(id);
     if (!prompt) return storage.getPermissions();
@@ -1528,6 +1604,7 @@ function installIpcHandlers() {
     const permissions = storage.setPermission({
       domain: prompt.domain,
       permission: prompt.permission,
+      spaceId: prompt.spaceId,
       value: allowed ? 'allow' : 'deny'
     });
     prompt.callback(allowed);
@@ -1593,8 +1670,8 @@ function installIpcHandlers() {
   });
 }
 
-function installDownloadHandlers() {
-  session.defaultSession.on('will-download', (_event, item) => {
+function installDownloadHandlers(targetSession = session.defaultSession) {
+  targetSession.on('will-download', (_event, item) => {
     const settings = storage.getSettings();
     const downloadFolder = settings.downloadPath || app.getPath('downloads');
     const startedAt = new Date().toISOString();
@@ -1648,6 +1725,25 @@ function installDownloadHandlers() {
       storage.upsertDownload(download);
       broadcast('nyra:downloads-changed', getDownloadsWithFileState());
     });
+  });
+}
+
+function configureBrowsingSession(targetSession, spaceId = 'personal') {
+  if (!targetSession || configuredBrowsingSessions.has(targetSession)) return;
+
+  configuredBrowsingSessions.add(targetSession);
+  browsingSessionSpaceIds.set(targetSession, spaceId);
+  targetSession.setUserAgent(chromeLikeUserAgent());
+  installSecurityHandlers(targetSession);
+  installAdBlocker(targetSession);
+  installDownloadHandlers(targetSession);
+}
+
+function configureSpaceSessions() {
+  storage.getSpaces().forEach((space) => {
+    if (space && typeof space.partition === 'string' && space.partition.startsWith(SPACE_PARTITION_PREFIX)) {
+      configureBrowsingSession(session.fromPartition(space.partition), space.id);
+    }
   });
 }
 
@@ -1845,6 +1941,12 @@ app.on('will-finish-launching', () => {
   startupLog('will-finish-launching');
 });
 
+app.on('web-contents-created', (_event, contents) => {
+  hardenWebContents(contents);
+  contents.on('enter-html-full-screen', () => handleGuestHtmlFullscreen(contents, true));
+  contents.on('leave-html-full-screen', () => handleGuestHtmlFullscreen(contents, false));
+});
+
 startupLog('registering app ready handler');
 let started = false;
 
@@ -1861,7 +1963,6 @@ function startApp() {
     userDataDir: app.getPath('userData'),
     safeStorage
   });
-  session.defaultSession.setUserAgent(chromeLikeUserAgent());
   startupLog(`storage loaded: ${storage.filePath}`);
   const recoveryInfo = storage.getRecoveryInfo && storage.getRecoveryInfo();
   if (recoveryInfo) startupLog(`storage recovery: ${JSON.stringify(recoveryInfo)}`);
@@ -1873,10 +1974,9 @@ function startApp() {
   nativeTheme.on('updated', () => {
     if (storage.getSettings().theme === 'system') updateWindowTheme('system');
   });
-  installSecurityHandlers();
-  installAdBlocker();
+  configureBrowsingSession(session.defaultSession, 'personal');
+  configureSpaceSessions();
   installIpcHandlers();
-  installDownloadHandlers();
   installWindowsUserTasks();
   if (app.isPackaged && !SAFE_MODE) setupAutoUpdater();
   createWindow();
@@ -1885,10 +1985,6 @@ function startApp() {
   }, 800);
 }
 
-app.once('ready', startApp);
-process.nextTick(() => {
-  if (app.isReady()) startApp();
-});
 app.whenReady().then(startApp).catch((error) => {
   startupLog('startup failed before main window', error);
   createRecoveryWindow(error);

@@ -36,10 +36,11 @@ function createTestStore(available = true) {
     ]
   });
 
-  assert.equal(normalized.version, 2);
+  assert.equal(normalized.version, 3);
   assert.equal(normalized.credentials.length, 1);
   assert.equal(normalized.credentials[0].origin, 'https://example.com');
   assert.equal(normalized.credentials[0].username, 'Gab');
+  assert.equal(normalized.credentials[0].spaceId, 'personal');
 }
 
 {
@@ -50,6 +51,52 @@ function createTestStore(available = true) {
   assert.equal(first.action, 'saved');
   assert.equal(second.action, 'saved');
   assert.equal(store.findLoginsForUrl('https://example.com/login').logins.length, 2);
+}
+
+{
+  const store = createTestStore();
+  const personal = store.saveLogin({
+    url: 'https://example.com/login',
+    username: 'gab@example.com',
+    password: 'personal-secret',
+    spaceId: 'personal'
+  });
+  const work = store.saveLogin({
+    url: 'https://example.com/login',
+    username: 'gab@example.com',
+    password: 'work-secret',
+    spaceId: 'work'
+  });
+
+  assert.equal(personal.action, 'saved');
+  assert.equal(work.action, 'saved');
+  assert.equal(store.findLoginsForUrl('https://example.com/login', 'personal').logins.length, 1);
+  assert.equal(store.findLoginsForUrl('https://example.com/login', 'work').logins.length, 1);
+  assert.equal(store.getLoginSecret(personal.login.id).credential.password, 'personal-secret');
+  assert.equal(store.getLoginSecret(work.login.id).credential.password, 'work-secret');
+  store.clearLogins('work');
+  assert.equal(store.findLoginsForUrl('https://example.com/login', 'personal').logins.length, 1);
+  assert.equal(store.findLoginsForUrl('https://example.com/login', 'work').logins.length, 0);
+
+  store.neverSaveForUrl('https://blocked.example/login', 'work');
+  assert.equal(
+    store.classifyLogin({
+      url: 'https://blocked.example/login',
+      username: 'gab@example.com',
+      password: 'one',
+      spaceId: 'work'
+    }).action,
+    'never'
+  );
+  assert.equal(
+    store.classifyLogin({
+      url: 'https://blocked.example/login',
+      username: 'gab@example.com',
+      password: 'one',
+      spaceId: 'personal'
+    }).action,
+    'save'
+  );
 }
 
 {
@@ -113,4 +160,4 @@ function createTestStore(available = true) {
   assert.ok(fs.readdirSync(dir).some((name) => name.startsWith('passwords.corrupt.')));
 }
 
-console.log('password-store: migration, multi-account, update, delete, unavailable, and corrupt fallback passed');
+console.log('password-store: migration, multi-account, Space isolation, update, delete, unavailable, and corrupt fallback passed');

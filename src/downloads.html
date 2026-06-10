@@ -34,7 +34,7 @@
           <span>Status</span>
           <span>Progress</span>
           <span>Path</span>
-          <span>Actions</span>
+          <span></span>
         </div>
         <div id="downloads-list"></div>
         <p id="downloads-count" class="downloads-count"></p>
@@ -158,15 +158,19 @@
                 <div class="download-bar" style="--progress:${percent}%"></div>
               </div>
               <span class="download-path" title="${escapeHtml(download.savePath || "")}">${escapeHtml(download.savePath || "No local path yet")}</span>
-              <div class="download-actions">
-                <button class="open-file" type="button" ${canOpen ? "" : "disabled"}>Open</button>
-                <button class="show-folder" type="button" ${canShow ? "" : "disabled"}>Folder</button>
-                <button class="retry-download" type="button" ${canRetry ? "" : "disabled"}>Retry</button>
-                <button class="remove-download" type="button">Remove</button>
-              </div>
+              <details class="download-actions">
+                <summary aria-label="Download actions" title="Download actions"><span data-icon="more-horizontal"></span></summary>
+                <div class="download-actions-menu">
+                  ${canOpen ? '<button class="open-file" type="button">Open file</button>' : ""}
+                  ${canShow ? '<button class="show-folder" type="button">Show in folder</button>' : ""}
+                  ${canRetry ? '<button class="retry-download" type="button">Retry download</button>' : ""}
+                  <button class="remove-download danger" type="button">Remove from list</button>
+                </div>
+              </details>
             </article>
           `;
         }).join("");
+        window.NyraIcons?.mount(list);
 
         list.querySelectorAll(".download-item").forEach((item) => {
           const id = item.dataset.downloadId;
@@ -188,7 +192,22 @@
             setStatus("Download removed.");
           });
         });
+        list.querySelectorAll(".download-actions").forEach((menu) => {
+          menu.addEventListener("toggle", () => {
+            if (!menu.open) return;
+            list.querySelectorAll(".download-actions[open]").forEach((other) => {
+              if (other !== menu) other.open = false;
+            });
+          });
+        });
       }
+
+      document.addEventListener("pointerdown", (event) => {
+        if (event.target.closest(".download-actions")) return;
+        list.querySelectorAll(".download-actions[open]").forEach((menu) => {
+          menu.open = false;
+        });
+      });
 
       async function load() {
         window.NyraSettings?.applyAppearance(await window.nyra.getSettings());

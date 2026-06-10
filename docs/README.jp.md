@@ -16,7 +16,7 @@ Nyraは、Electronで作られたミニマルでパーソナルなデスクト�
 
 ## ステータス
 
-現在のバージョン: **1.6.2**
+現在のバージョン: **1.7.0**
 
 Nyraは現在も開発中です。現時点ではWindowsが主なターゲットです。Linux向けのパッケージングスクリプトもありますが、機能とリリースはまずWindowsで検証されています。
 
@@ -38,6 +38,42 @@ Nyraは、デスクトップブラウザの仕組みを理解し、Electronを�
 
 ---
 
+## スクリーンショット
+
+以下は現在のWindows開発ビルドを実際に撮影したスクリーンショットです。
+
+### ブラウザと新しいタブ
+
+現在のSpaceのブックマーク、最近開いたサイト、復元できるページからすぐに始められます。
+
+![Nyraのブラウザシェル、Spacesサイドバー、新しいタブページ](./assets/screenshots/nyra-new-tab.png)
+
+### Nyra Spaces
+
+仕事、個人用ブラウジング、ショッピングなど、デジタルライフの用途ごとに分離されたSpaceを作成できます。
+
+![Nyraで分離されたSpaceを作成する画面](./assets/screenshots/nyra-spaces.png)
+
+### ブックマーク
+
+内蔵のブックマークマネージャーで、保存したサイトの整理、検索、編集、表示ができます。
+
+![フォルダーと保存済みサイトを表示するNyraのブックマークマネージャー](./assets/screenshots/nyra-bookmarks.png)
+
+### ダウンロード
+
+永続化されたダウンロード、進行状況、見つからないファイル、ファイル操作を1つのページで確認できます。
+
+![完了、見つからない、失敗した項目を表示するNyraのダウンロードページ](./assets/screenshots/nyra-downloads.png)
+
+### プライバシーとセキュリティ
+
+HTTPS-Firstナビゲーション、ローカルで暗号化されたパスワード、サイトデータ、Spaceごとの権限を管理できます。
+
+![Nyraのプライバシーとセキュリティ設定](./assets/screenshots/nyra-settings-privacy.png)
+
+---
+
 ## 機能
 
 ### ブラウザシェル
@@ -53,6 +89,16 @@ Nyraは、デスクトップブラウザの仕組みを理解し、Electronを�
 - YouTubeなどのサイト向けFullscreen対応。
 - 起動アニメーションとWindowsネイティブアイコン。
 - 再起動後に適用されるハードウェアアクセラレーション設定。
+
+### Spaces
+
+- Cookie、ログイン、サイトデータを分離した複数のデジタル環境。
+- 通常の各タブは、専用の永続Electron partitionを持つSpaceに所属。
+- 名前、アイコン、色を設定したSpaceを作成。
+- サイドバーからSpaceを切り替え、そのSpaceのタブだけを表示。
+- Space間でタブを移動または複製。
+- セッション復元時も各タブのSpaceを維持。
+- パスワード、権限、サイトデータを正しいSpaceに関連付けて保存。
 
 ### 内部ページ
 
@@ -204,7 +250,7 @@ Nyraは配布とupdater metadataにGitHub Releasesを使います。
 4. `npm test` を実行。
 5. `npm run dist` を実行。
 6. version bumpをcommit。
-7. `v1.6.2` のようなtagを作成。
+7. `v1.7.0` のようなtagを作成。
 8. GitHub Releaseを作成してアップロード:
    - `NyraSetup.exe`
    - `NyraSetup.exe.blockmap`

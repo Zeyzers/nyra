@@ -45,6 +45,15 @@
 
   <div id="content-shell">
     <aside id="sidebar" aria-label="Nyra navigation">
+      <section class="spaces-sidebar" aria-label="Spaces">
+        <div class="spaces-header">
+          <span class="side-label">Spaces</span>
+          <button id="new-space" class="space-add" type="button" title="New Space" data-tooltip="New Space">
+            <span data-icon="plus"></span>
+          </button>
+        </div>
+        <div id="spaces-list" class="spaces-list"></div>
+      </section>
       <nav class="side-nav">
         <button class="side-link active" id="side-home" type="button" data-tooltip="Home" title="Home">
           <span class="side-icon" data-icon="home"></span>
@@ -88,6 +97,22 @@
       </div>
       <div id="site-info-menu" class="site-info-menu" hidden></div>
       <div id="tab-context-menu" class="tab-context-menu" hidden></div>
+      <dialog id="space-dialog" class="space-dialog">
+        <form method="dialog">
+          <strong>New Space</strong>
+          <p>Separate cookies, logins and site data for a different part of your digital life.</p>
+          <div class="space-template-grid" id="space-templates"></div>
+          <label>
+            <span>Name</span>
+            <input id="space-name" type="text" maxlength="32" placeholder="Work" />
+          </label>
+          <div class="space-color-row" id="space-colors" aria-label="Space color"></div>
+          <div class="dialog-actions">
+            <button id="space-cancel" type="button">Cancel</button>
+            <button id="space-create" class="primary" type="button">Create Space</button>
+          </div>
+        </form>
+      </dialog>
       <dialog id="permission-dialog" class="permission-dialog">
         <form method="dialog">
           <strong id="permission-title">Permission request</strong>

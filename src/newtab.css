@@ -68,8 +68,8 @@ body {
 
 .newtab-shell {
   margin: 0 auto;
-  max-width: 860px;
-  padding: 44px 32px 48px;
+  max-width: 900px;
+  padding: 30px 32px 44px;
 }
 
 .hero {
@@ -77,7 +77,6 @@ body {
   display: grid;
   gap: 26px;
   justify-items: center;
-  padding-top: 10px;
 }
 
 .hero-brand {
@@ -99,6 +98,32 @@ h1 {
   font-weight: 760;
   line-height: 1;
   margin: 0;
+}
+
+.space-badge {
+  align-items: center;
+  background: color-mix(in srgb, var(--space-color, var(--accent)) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--space-color, var(--accent)) 34%, var(--border));
+  border-radius: 999px;
+  color: var(--text);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 650;
+  gap: 8px;
+  height: 28px;
+  padding: 0 12px;
+}
+
+.space-badge::before {
+  background: var(--space-color, var(--accent));
+  border-radius: 999px;
+  content: "";
+  height: 8px;
+  width: 8px;
+}
+
+.space-badge[hidden] {
+  display: none;
 }
 
 .search-bar {
@@ -140,8 +165,8 @@ h1 {
 }
 
 .bookmarks {
-  margin: 36px auto 0;
-  max-width: 720px;
+  margin: 28px auto 0;
+  max-width: 780px;
 }
 
 .section-heading {
@@ -173,8 +198,8 @@ h1 {
 
 .bookmarks-list {
   display: grid;
-  gap: 18px 20px;
-  grid-template-columns: repeat(auto-fill, 96px);
+  gap: 16px 18px;
+  grid-template-columns: repeat(auto-fill, 92px);
   justify-content: start;
 }
 
@@ -205,14 +230,101 @@ h1 {
   font-weight: 760;
   height: 78px;
   justify-content: center;
-  width: 96px;
+  width: 92px;
 }
 
-.bookmark-label {
-  max-width: 104px;
+.activity-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 28px auto 0;
+  max-width: 780px;
+}
+
+.activity-section {
+  min-width: 0;
+}
+
+.activity-section[hidden] {
+  display: none;
+}
+
+.activity-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.activity-card {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  display: flex;
+  gap: 11px;
+  min-height: 54px;
+  padding: 9px 12px;
+  text-decoration: none;
+}
+
+.activity-card:last-child {
+  border-bottom: 0;
+}
+
+.activity-card:hover {
+  background: var(--surface-2);
+}
+
+.activity-icon {
+  align-items: center;
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  display: flex;
+  flex: 0 0 32px;
+  font-size: 14px;
+  font-weight: 700;
+  height: 32px;
+  justify-content: center;
+  overflow: hidden;
+  width: 32px;
+}
+
+.activity-icon img {
+  height: 18px;
+  width: 18px;
+}
+
+.activity-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.activity-copy strong,
+.activity-copy small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.activity-copy strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.activity-copy small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.bookmark-label {
+  line-height: 1.25;
+  max-width: 104px;
+  min-height: 32px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .bookmarks-list a:hover .bookmark-icon {
@@ -361,5 +473,9 @@ body.newtab-density-compact .bookmark-label {
 
   .search-bar {
     width: 100%;
+  }
+
+  .activity-grid {
+    grid-template-columns: 1fr;
   }
 }

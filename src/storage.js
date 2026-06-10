@@ -13,6 +13,23 @@ const VALID_NEW_TAB_DENSITIES = new Set(['comfortable', 'compact']);
 const VALID_TAB_CLOSE_MODES = new Set(['always', 'hover']);
 const VALID_PERMISSION_TYPES = new Set(['camera', 'microphone', 'geolocation', 'notifications']);
 const VALID_PERMISSION_VALUES = new Set(['allow', 'deny']);
+const PERSONAL_SPACE_ID = 'personal';
+const SPACE_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,40}$/;
+const DEFAULT_SPACE_COLORS = new Set(['#4f8cff', '#ff4f8b', '#8b5cf6', '#22c55e', '#f59e0b', '#14b8a6']);
+
+function spacePartitionForId(id) {
+  return `persist:nyra-space-${sanitizeSpaceId(id || PERSONAL_SPACE_ID)}`;
+}
+
+const DEFAULT_PERSONAL_SPACE = Object.freeze({
+  id: PERSONAL_SPACE_ID,
+  name: 'Personal',
+  icon: 'home',
+  color: '#4f8cff',
+  partition: spacePartitionForId(PERSONAL_SPACE_ID),
+  createdAt: '',
+  updatedAt: ''
+});
 
 const DEFAULT_STATE = Object.freeze({
   settings: {
@@ -35,8 +52,11 @@ const DEFAULT_STATE = Object.freeze({
     hardwareAcceleration: true
   },
   session: {
-    tabs: []
+    tabs: [],
+    activeSpaceId: PERSONAL_SPACE_ID,
+    activeTabIndex: 0
   },
+  spaces: [DEFAULT_PERSONAL_SPACE],
   bookmarks: [],
   bookmarkFolders: [],
   downloads: [],
@@ -55,6 +75,19 @@ function timestampForFilename() {
 
 function createId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function sanitizeSpaceId(value) {
+  const cleaned = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+    .slice(0, 41);
+
+  if (SPACE_ID_PATTERN.test(cleaned)) return cleaned;
+  return createId('space').replace(/^space-/, 'space-').slice(0, 41);
 }
 
 function safeDate(value) {
@@ -148,9 +181,53 @@ function normalizeSettings(settings = {}) {
   };
 }
 
-function normalizeTabs(tabs) {
+function normalizeSpaces(spaces) {
+  const now = new Date().toISOString();
+  const seen = new Set();
+  const normalized = [];
+  const source = Array.isArray(spaces) ? spaces : [];
+
+  const pushSpace = (space, index) => {
+    if (!space || typeof space.name !== 'string') return;
+
+    const id = sanitizeSpaceId(space.id || space.name);
+    if (!id || seen.has(id)) return;
+
+    const color = typeof space.color === 'string' && /^#[0-9a-f]{6}$/i.test(space.color)
+      ? space.color.toLowerCase()
+      : DEFAULT_SPACE_COLORS.has(space.color) ? space.color : '#4f8cff';
+
+    seen.add(id);
+    normalized.push({
+      id,
+      name: space.name.trim() || 'Space',
+      icon: typeof space.icon === 'string' && space.icon.trim() ? space.icon.trim() : 'circle',
+      color,
+      partition: spacePartitionForId(id),
+      createdAt: safeDate(space.createdAt || now),
+      updatedAt: safeDate(space.updatedAt || space.createdAt || now),
+      order: Number.isFinite(Number(space.order)) ? Number(space.order) : index
+    });
+  };
+
+  pushSpace({ ...DEFAULT_PERSONAL_SPACE, ...(source.find((space) => space && space.id === PERSONAL_SPACE_ID) || {}) }, -1);
+  source.forEach((space, index) => {
+    if (space && space.id !== PERSONAL_SPACE_ID) pushSpace(space, index);
+  });
+
+  return normalized
+    .sort((a, b) => {
+      if (a.id === PERSONAL_SPACE_ID) return -1;
+      if (b.id === PERSONAL_SPACE_ID) return 1;
+      return a.order - b.order || a.name.localeCompare(b.name);
+    })
+    .map(({ order, ...space }) => space);
+}
+
+function normalizeTabs(tabs, spaces = normalizeSpaces()) {
   if (!Array.isArray(tabs)) return [];
 
+  const spaceIds = new Set(spaces.map((space) => space.id));
   return tabs
     .filter((tab) => tab && typeof tab.url === 'string')
     .map((tab) => ({
@@ -158,7 +235,8 @@ function normalizeTabs(tabs) {
       title: typeof tab.title === 'string' ? tab.title : 'New Tab',
       pinned: Boolean(tab.pinned),
       muted: Boolean(tab.muted),
-      favicon: typeof tab.favicon === 'string' ? tab.favicon : ''
+      favicon: typeof tab.favicon === 'string' ? tab.favicon : '',
+      spaceId: spaceIds.has(tab.spaceId) ? tab.spaceId : PERSONAL_SPACE_ID
     }));
 }
 
@@ -292,9 +370,10 @@ function normalizeExtensions(extensions) {
     .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
 }
 
-function normalizePermissions(permissions) {
+function normalizePermissions(permissions, spaces = normalizeSpaces()) {
   if (!Array.isArray(permissions)) return [];
 
+  const spaceIds = new Set(spaces.map((space) => space.id));
   const seen = new Set();
   return permissions
     .filter((permission) => permission && typeof permission.domain === 'string')
@@ -302,10 +381,11 @@ function normalizePermissions(permissions) {
       domain: permission.domain.trim().toLowerCase().replace(/^www\./, ''),
       permission: permission.permission,
       value: permission.value,
+      spaceId: spaceIds.has(permission.spaceId) ? permission.spaceId : PERSONAL_SPACE_ID,
       updatedAt: safeDate(permission.updatedAt)
     }))
     .filter((permission) => {
-      const key = `${permission.domain}:${permission.permission}`;
+      const key = `${permission.spaceId}:${permission.domain}:${permission.permission}`;
       if (
         !permission.domain ||
         !VALID_PERMISSION_TYPES.has(permission.permission) ||
@@ -315,7 +395,7 @@ function normalizePermissions(permissions) {
       seen.add(key);
       return true;
     })
-    .sort((a, b) => a.domain.localeCompare(b.domain) || a.permission.localeCompare(b.permission));
+    .sort((a, b) => a.spaceId.localeCompare(b.spaceId) || a.domain.localeCompare(b.domain) || a.permission.localeCompare(b.permission));
 }
 
 function normalizeHistory(history) {
@@ -341,16 +421,27 @@ function normalizeHistory(history) {
 
 function normalizeState(state = {}) {
   const bookmarkFolders = normalizeBookmarkFolders(state.bookmarkFolders);
+  const spaces = normalizeSpaces(state.spaces);
+  const normalizedTabs = normalizeTabs(state.session && state.session.tabs, spaces);
+  const activeSpaceId = spaces.some((space) => space.id === state.session?.activeSpaceId)
+    ? state.session.activeSpaceId
+    : PERSONAL_SPACE_ID;
+  const activeTabIndex = Number.isInteger(state.session?.activeTabIndex)
+    ? Math.min(Math.max(0, state.session.activeTabIndex), Math.max(0, normalizedTabs.length - 1))
+    : 0;
   return {
     settings: normalizeSettings(state.settings),
     session: {
-      tabs: normalizeTabs(state.session && state.session.tabs)
+      tabs: normalizedTabs,
+      activeSpaceId,
+      activeTabIndex
     },
+    spaces,
     bookmarks: normalizeBookmarks(state.bookmarks, bookmarkFolders),
     bookmarkFolders,
     downloads: normalizeDownloads(state.downloads),
     extensions: normalizeExtensions(state.extensions),
-    permissions: normalizePermissions(state.permissions),
+    permissions: normalizePermissions(state.permissions, spaces),
     history: normalizeHistory(state.history)
   };
 }
@@ -554,12 +645,111 @@ function createStorage(userDataDir, filename = 'nyra-state.json') {
   }
 
   function saveSession(session) {
+    const tabs = normalizeTabs(session && session.tabs, state.spaces);
+    const activeSpaceId = state.spaces.some((space) => space.id === session?.activeSpaceId)
+      ? session.activeSpaceId
+      : PERSONAL_SPACE_ID;
     return writeState({
       ...state,
       session: {
-        tabs: normalizeTabs(session && session.tabs)
+        tabs,
+        activeSpaceId,
+        activeTabIndex: Number.isInteger(session?.activeTabIndex)
+          ? Math.min(Math.max(0, session.activeTabIndex), Math.max(0, tabs.length - 1))
+          : 0
       }
     }).session;
+  }
+
+  function getSpaces() {
+    return clone(state.spaces);
+  }
+
+  function createSpace(space) {
+    const now = new Date().toISOString();
+    const sourceName = space && typeof space.name === 'string' && space.name.trim()
+      ? space.name.trim()
+      : 'New Space';
+    const baseId = sanitizeSpaceId(space && space.id ? space.id : sourceName);
+    const existing = new Set(state.spaces.map((item) => item.id));
+    let id = baseId;
+    let suffix = 2;
+    while (existing.has(id)) {
+      id = sanitizeSpaceId(`${baseId}-${suffix}`);
+      suffix += 1;
+    }
+
+    const nextState = writeState({
+      ...state,
+      spaces: normalizeSpaces([
+        ...state.spaces,
+        {
+          ...(space || {}),
+          id,
+          name: sourceName,
+          createdAt: now,
+          updatedAt: now,
+          order: state.spaces.length
+        }
+      ])
+    });
+    return nextState.spaces;
+  }
+
+  function updateSpace(id, updates) {
+    const spaceId = sanitizeSpaceId(id);
+    if (spaceId === PERSONAL_SPACE_ID) {
+      return writeState({
+        ...state,
+        spaces: normalizeSpaces(state.spaces.map((space) => (
+          space.id === PERSONAL_SPACE_ID
+            ? {
+              ...space,
+              ...(updates || {}),
+              id: PERSONAL_SPACE_ID,
+              name: 'Personal',
+              partition: spacePartitionForId(PERSONAL_SPACE_ID),
+              updatedAt: new Date().toISOString()
+            }
+            : space
+        )))
+      }).spaces;
+    }
+
+    return writeState({
+      ...state,
+      spaces: normalizeSpaces(state.spaces.map((space) => (
+        space.id === spaceId
+          ? {
+            ...space,
+            ...(updates || {}),
+            id: space.id,
+            partition: spacePartitionForId(space.id),
+            updatedAt: new Date().toISOString()
+          }
+          : space
+      )))
+    }).spaces;
+  }
+
+  function removeSpace(id) {
+    const spaceId = sanitizeSpaceId(id);
+    if (spaceId === PERSONAL_SPACE_ID) return getSpaces();
+
+    const nextSpaces = state.spaces.filter((space) => space.id !== spaceId);
+    const nextState = writeState({
+      ...state,
+      spaces: nextSpaces,
+      permissions: state.permissions.filter((permission) => permission.spaceId !== spaceId),
+      session: {
+        ...state.session,
+        activeSpaceId: state.session.activeSpaceId === spaceId ? PERSONAL_SPACE_ID : state.session.activeSpaceId,
+        tabs: state.session.tabs.map((tab) => (
+          tab.spaceId === spaceId ? { ...tab, spaceId: PERSONAL_SPACE_ID } : tab
+        ))
+      }
+    });
+    return nextState.spaces;
   }
 
   function getBookmarksData() {
@@ -772,16 +962,21 @@ function createStorage(userDataDir, filename = 'nyra-state.json') {
     return clone(state.permissions);
   }
 
-  function getPermission(domain, permission) {
+  function getPermission(domain, permission, spaceId = PERSONAL_SPACE_ID) {
     const normalizedDomain = String(domain || '').trim().toLowerCase().replace(/^www\./, '');
-    return state.permissions.find((item) => item.domain === normalizedDomain && item.permission === permission) || null;
+    const normalizedSpaceId = state.spaces.some((space) => space.id === spaceId) ? spaceId : PERSONAL_SPACE_ID;
+    return state.permissions.find((item) => (
+      item.spaceId === normalizedSpaceId &&
+      item.domain === normalizedDomain &&
+      item.permission === permission
+    )) || null;
   }
 
   function setPermission(permission) {
     const [normalizedPermission] = normalizePermissions([{
       ...(permission || {}),
       updatedAt: new Date().toISOString()
-    }]);
+    }], state.spaces);
     if (!normalizedPermission) return getPermissions();
 
     return writeState({
@@ -789,26 +984,32 @@ function createStorage(userDataDir, filename = 'nyra-state.json') {
       permissions: normalizePermissions([
         normalizedPermission,
         ...state.permissions.filter((item) => (
-          item.domain !== normalizedPermission.domain || item.permission !== normalizedPermission.permission
+          item.spaceId !== normalizedPermission.spaceId ||
+          item.domain !== normalizedPermission.domain ||
+          item.permission !== normalizedPermission.permission
         ))
-      ])
+      ], state.spaces)
     }).permissions;
   }
 
-  function removePermission(domain, permission) {
+  function removePermission(domain, permission, spaceId) {
     const normalizedDomain = String(domain || '').trim().toLowerCase().replace(/^www\./, '');
     return writeState({
       ...state,
       permissions: state.permissions.filter((item) => (
-        item.domain !== normalizedDomain || (permission && item.permission !== permission)
+        (spaceId && item.spaceId !== spaceId) ||
+        item.domain !== normalizedDomain ||
+        (permission && item.permission !== permission)
       ))
     }).permissions;
   }
 
-  function clearPermissions() {
+  function clearPermissions(spaceId) {
     return writeState({
       ...state,
-      permissions: []
+      permissions: spaceId
+        ? state.permissions.filter((permission) => permission.spaceId !== spaceId)
+        : []
     }).permissions;
   }
 
@@ -854,6 +1055,10 @@ function createStorage(userDataDir, filename = 'nyra-state.json') {
     updateSettings,
     getSession,
     saveSession,
+    getSpaces,
+    createSpace,
+    updateSpace,
+    removeSpace,
     getBookmarksData,
     getBookmarks,
     addBookmark,
@@ -887,7 +1092,10 @@ function createStorage(userDataDir, filename = 'nyra-state.json') {
 
 module.exports = {
   DEFAULT_STATE,
+  PERSONAL_SPACE_ID,
   createStorage,
   domainForUrl,
-  normalizeState
+  normalizeState,
+  sanitizeSpaceId,
+  spacePartitionForId
 };

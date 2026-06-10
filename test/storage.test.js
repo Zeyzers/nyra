@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { DEFAULT_STATE, createStorage } = require("../src/storage");
+const { DEFAULT_STATE, createStorage, spacePartitionForId } = require("../src/storage");
 
 function tempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "nyra-storage-"));
@@ -66,6 +66,7 @@ function tempDir() {
     "permissions",
     "session",
     "settings",
+    "spaces",
   ]);
 }
 
@@ -117,8 +118,64 @@ function tempDir() {
   assert.equal(reloaded.getSettings().downloadPath, path.join(dir, "downloads"));
   assert.equal(reloaded.getSettings().hardwareAcceleration, false);
   assert.deepEqual(reloaded.getSession().tabs, [
-    { url: "https://example.com/", title: "Example", pinned: false, muted: false, favicon: "" },
+    { url: "https://example.com/", title: "Example", pinned: false, muted: false, favicon: "", spaceId: "personal" },
   ]);
+  assert.equal(reloaded.getSession().activeSpaceId, "personal");
+  assert.equal(reloaded.getSession().activeTabIndex, 0);
+}
+
+{
+  const dir = tempDir();
+  const storage = createStorage(dir);
+
+  assert.equal(storage.getSpaces()[0].id, "personal");
+  assert.equal(storage.getSpaces()[0].partition, spacePartitionForId("personal"));
+
+  const spaces = storage.createSpace({
+    id: "Work Stuff!",
+    name: "Work",
+    icon: "briefcase",
+    color: "#3b82f6",
+  });
+  const work = spaces.find((space) => space.name === "Work");
+  assert.equal(work.id, "work-stuff");
+  assert.equal(work.partition, "persist:nyra-space-work-stuff");
+
+  storage.saveSession({
+    activeSpaceId: work.id,
+    activeTabIndex: 0,
+    tabs: [
+      { url: "https://github.com/", title: "GitHub", spaceId: work.id },
+      { url: "https://example.com/", title: "Legacy" },
+      { url: "https://missing-space.test/", title: "Missing", spaceId: "missing" },
+    ],
+  });
+
+  assert.deepEqual(storage.getSession().tabs.map((tab) => tab.spaceId), [
+    work.id,
+    "personal",
+    "personal",
+  ]);
+  assert.equal(storage.getSession().activeSpaceId, work.id);
+
+  storage.removeSpace("personal");
+  assert.equal(storage.getSpaces().some((space) => space.id === "personal"), true);
+
+  storage.removeSpace(work.id);
+  assert.equal(storage.getSpaces().some((space) => space.id === work.id), false);
+  assert.deepEqual(storage.getSession().tabs.map((tab) => tab.spaceId), [
+    "personal",
+    "personal",
+    "personal",
+  ]);
+  assert.equal(storage.getSession().activeSpaceId, "personal");
+
+  const banking = storage.createSpace({ id: "banking", name: "Banking", color: "#22c55e" })
+    .find((space) => space.id === "banking");
+  storage.setPermission({ domain: "example.com", permission: "camera", value: "allow", spaceId: "personal" });
+  storage.setPermission({ domain: "example.com", permission: "camera", value: "deny", spaceId: banking.id });
+  assert.equal(storage.getPermission("example.com", "camera", "personal").value, "allow");
+  assert.equal(storage.getPermission("example.com", "camera", banking.id).value, "deny");
 }
 
 {
@@ -272,4 +329,4 @@ function tempDir() {
   assert.equal(storage.getHistory()[99].url, "https://example.com/5");
 }
 
-console.log("storage: defaults, corrupted fallback, persistence, bookmarks, downloads, permissions, and history controls passed");
+console.log("storage: defaults, corrupted fallback, persistence, spaces, bookmarks, downloads, permissions, and history controls passed");

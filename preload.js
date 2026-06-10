@@ -111,6 +111,11 @@ if (isTrustedLocalPage) {
   loadSession: () => ipcRenderer.invoke('nyra:load-session'),
   saveSession: (tabs) => ipcRenderer.invoke('nyra:save-session', tabs),
   saveSessionSync: (tabs) => ipcRenderer.sendSync('nyra:save-session-sync', tabs),
+  getSpaces: () => ipcRenderer.invoke('nyra:get-spaces'),
+  createSpace: (space) => ipcRenderer.invoke('nyra:create-space', space),
+  updateSpace: (id, updates) => ipcRenderer.invoke('nyra:update-space', id, updates),
+  removeSpace: (id) => ipcRenderer.invoke('nyra:remove-space', id),
+  clearSpaceData: (id) => ipcRenderer.invoke('nyra:clear-space-data', id),
   getBookmarksData: () => ipcRenderer.invoke('nyra:get-bookmarks-data'),
   getBookmarks: () => ipcRenderer.invoke('nyra:get-bookmarks'),
   addBookmark: (bookmark) => ipcRenderer.invoke('nyra:add-bookmark', bookmark),
@@ -147,25 +152,25 @@ if (isTrustedLocalPage) {
   toggleDevTools: (webContentsId) => ipcRenderer.invoke('nyra:toggle-devtools', webContentsId),
   getPermissions: () => ipcRenderer.invoke('nyra:get-permissions'),
   setPermission: (permission) => ipcRenderer.invoke('nyra:set-permission', permission),
-  removePermission: (domain, permission) => ipcRenderer.invoke('nyra:remove-permission', domain, permission),
-  clearPermissions: () => ipcRenderer.invoke('nyra:clear-permissions'),
-  getSiteData: () => ipcRenderer.invoke('nyra:get-site-data'),
-  getSiteSummary: (url) => ipcRenderer.invoke('nyra:get-site-summary', url),
-  clearSiteData: (domain) => ipcRenderer.invoke('nyra:clear-site-data', domain),
+  removePermission: (domain, permission, spaceId) => ipcRenderer.invoke('nyra:remove-permission', domain, permission, spaceId),
+  clearPermissions: (spaceId) => ipcRenderer.invoke('nyra:clear-permissions', spaceId),
+  getSiteData: (spaceId) => ipcRenderer.invoke('nyra:get-site-data', spaceId),
+  getSiteSummary: (url, spaceId) => ipcRenderer.invoke('nyra:get-site-summary', url, spaceId),
+  clearSiteData: (domain, spaceId) => ipcRenderer.invoke('nyra:clear-site-data', domain, spaceId),
   clearAllSiteData: () => ipcRenderer.invoke('nyra:clear-all-site-data'),
   getDiagnostics: () => ipcRenderer.invoke('nyra:get-diagnostics'),
   repairBrowserCache: () => ipcRenderer.invoke('nyra:repair-browser-cache'),
   openStartupLog: () => ipcRenderer.invoke('nyra:open-startup-log'),
   openUserDataFolder: () => ipcRenderer.invoke('nyra:open-user-data-folder'),
   openCacheFolder: () => ipcRenderer.invoke('nyra:open-cache-folder'),
-  getSavedLogins: () => ipcRenderer.invoke('nyra:get-saved-logins'),
-  getLoginsForUrl: (url) => ipcRenderer.invoke('nyra:get-logins-for-url', url),
+  getSavedLogins: (spaceId) => ipcRenderer.invoke('nyra:get-saved-logins', spaceId),
+  getLoginsForUrl: (url, spaceId) => ipcRenderer.invoke('nyra:get-logins-for-url', url, spaceId),
   getLoginSecret: (id) => ipcRenderer.invoke('nyra:get-login-secret', id),
   classifyLogin: (credential) => ipcRenderer.invoke('nyra:classify-login', credential),
   saveLogin: (credential) => ipcRenderer.invoke('nyra:save-login', credential),
   deleteSavedLogin: (id) => ipcRenderer.invoke('nyra:delete-saved-login', id),
   clearSavedLogins: () => ipcRenderer.invoke('nyra:clear-saved-logins'),
-  neverSaveLogin: (url) => ipcRenderer.invoke('nyra:never-save-login', url),
+  neverSaveLogin: (url, spaceId) => ipcRenderer.invoke('nyra:never-save-login', url, spaceId),
   resolvePermissionPrompt: (id, value) => ipcRenderer.invoke('nyra:resolve-permission-prompt', id, value),
   openTrustedExternalUrl: (url) => ipcRenderer.invoke('nyra:open-trusted-external-url', url),
   openExternalWebUrl: (url) => ipcRenderer.invoke('nyra:open-external-web-url', url),
@@ -214,6 +219,13 @@ if (isTrustedLocalPage) {
     const listener = (_event, history) => callback(history);
     ipcRenderer.on('nyra:history-changed', listener);
     return () => ipcRenderer.removeListener('nyra:history-changed', listener);
+  },
+  onSpacesChanged: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+
+    const listener = (_event, spaces) => callback(spaces);
+    ipcRenderer.on('nyra:spaces-changed', listener);
+    return () => ipcRenderer.removeListener('nyra:spaces-changed', listener);
   },
   onDownloadsChanged: (callback) => {
     if (typeof callback !== 'function') return () => {};
